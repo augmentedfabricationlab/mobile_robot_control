@@ -19,7 +19,7 @@ What happened instead.
 Provide a reproducible test case that is the bare minimum necessary to generate the problem.
 
 ```python
-import mobile_additive_manufacturing
+import mobile_fabrication_control
 
 ```
 
