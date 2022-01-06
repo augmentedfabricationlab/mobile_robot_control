@@ -6,7 +6,7 @@
 // Set the shield settings
 //
 byte mac[] = { 0xA6, 0x61, 0x0A, 0xAE, 0x19, 0x65 };
-IPAddress ip(192, 168, 10, 50);
+IPAddress ip(192, 168, 0, 220);
 IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
 int server_port = 50004;
@@ -44,7 +44,7 @@ struct MOTORDATA {
 } motordata;
 
 struct INFO {
-  String arduino_ip = "192.168.10.50";
+  String arduino_ip = "192.168.0.220";
   String arduino_gateway = "192.168.1.1";
   String arduino_subnet = "255.255.255.0";
   long arduino_port = 50004;

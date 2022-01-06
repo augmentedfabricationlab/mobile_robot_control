@@ -1,5 +1,5 @@
 import struct
-from .clay_extruder_control import ExtruderClient
+from .extruderclient import ExtruderClient
 
 __all__ = [
     "ExtruderMixins"
