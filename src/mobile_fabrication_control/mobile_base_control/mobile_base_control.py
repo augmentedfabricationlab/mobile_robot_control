@@ -86,16 +86,16 @@ class MobileBaseControl():
         request = ServiceRequest()
         print(list_controllers_service.call(request))
 
-    def move_forward(self, vel=1, dist=5.0):
+    def move_forward(self, vel=0.01, dist=0.1):
         move_base = self.topic_publisher("/robot/cmd_vel", "geometry_msgs/Twist")
         self.cmd_vel.linear.x = vel
         t0 = time.time()
         while dist > (time.time()-t0)*abs(vel):
             move_base.publish(Message(self.cmd_vel))
-            time.sleep(0.1)
+            time.sleep(0.01)
         move_base.unadvertise()
 
-    def move_backward(self, vel=-1, dist=5):
+    def move_backward(self, vel=-0.01, dist=0.1):
         self.move_forward(vel=vel, dist=dist)
 
     def move_radial(self, deg=90, vel=1, dist=5):
@@ -160,14 +160,14 @@ class MobileBaseControl():
 
 
 if __name__ == "__main__":
-    mb = MobileBaseControl(host='192.168.0.12', port=9090)
+    mb = MobileBaseControl(host='192.168.0.30', port=9090)
     mb.connect()
     time.sleep(1)
     # print(mb.ros.get_topics())
     # mb.list_controllers()
     # print(mb.ros.get_nodes())
     # print(mb.ros.get_services())
-    mb.echo_joint_states()
+    # mb.echo_joint_states()
     # config = Configuration()
     # config = Configuration.from_revolute_values([1.57079, 1.57079, 1.57079, 1.57079,1.57079, 1.57079])
     # print(config.joint_values)
@@ -176,6 +176,7 @@ if __name__ == "__main__":
     # mb.arm_move_joint(config)
     # mb.set_lift_height(0.2)
     # mb.move_forward()
+    mb.move_backward()
     # time.sleep(1)
     # mb.move_radial(deg=90)
     time.sleep(1)
