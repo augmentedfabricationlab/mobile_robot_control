@@ -1,5 +1,8 @@
 import time
 import math
+from compas.geometry import Frame
+from compas.geometry import Vector
+from compas.geometry import Transformation
 from compas.robots import Configuration
 from compas.robots.model.joint import Joint
 from compas_fab.backends import RosClient
@@ -24,7 +27,16 @@ class MobileBaseControl():
         self.ros = RosClient(host=host, port=port)
         self.cmd_vel = AttrDict(linear=AttrDict(x=0.0, y=0.0, z=0.0),
                                 angular=AttrDict(x=0.0, y=0.0, z=0.0))
+        self.robot_frame = Frame.worldXY()
         self.topics = {}
+
+    def cmd_vel_clear(self):
+        self.cmd_vel.linear.x = 0.0
+        self.cmd_vel.linear.y = 0.0
+        self.cmd_vel.linear.z = 0.0
+        self.cmd_vel.angular.x = 0.0
+        self.cmd_vel.angular.y = 0.0
+        self.cmd_vel.angular.z = 0.0
 
     def topic_subscriber(self, name, msg=None, callback=None):
         if name not in self.topics.keys():
@@ -81,6 +93,12 @@ class MobileBaseControl():
         # jst.unsubscribe()
         pass
 
+    def echo_robot_odom(self):
+        pass
+        # rod = self.topic_subscriber(name="/robot/odom",
+        #                             msg="geometry_msgs/Pose3D",
+        #                             callback=lambda message: print(message['data']))
+
     def list_controllers(self):
         list_controllers_service = Service(self.ros, "/robot/controller_manager/list_controllers", "/robot/controller_manager/list_controllers")
         request = ServiceRequest()
@@ -93,6 +111,9 @@ class MobileBaseControl():
         while dist > (time.time()-t0)*abs(vel):
             move_base.publish(Message(self.cmd_vel))
             time.sleep(0.01)
+        self.cmd_vel_clear()
+        T = Transformation.from_frame(Frame([dist*(vel/abs(vel)),0,0], [1,0,0], [0,1,0]))
+        self.robot_frame.transform(T)
         move_base.unadvertise()
 
     def move_backward(self, vel=-0.01, dist=0.1):
@@ -108,6 +129,9 @@ class MobileBaseControl():
         while dist > (time.time()-t0)*abs(vel):
             move_base.publish(Message(self.cmd_vel))
             time.sleep(0.1)
+        self.cmd_vel_clear()
+        T = Transformation.from_frame(Frame([dist*x_vel/vel,dist*y_vel/vel,0], [1,0,0], [0,1,0]))
+        self.robot_frame.transform(T)
         move_base.unadvertise()
 
     def arm_move_joint(self, configuration, max_velocity=[0.2,0.2,0.2,0.2,0.2,0.2], acceleration=[1,1,1,1,1,1]):
@@ -145,25 +169,55 @@ class MobileBaseControl():
         joint_state_publisher.unadvertise()
 
     def set_lift_height(self, height):
-        lift_topic = self.topic_publisher("/robot/lift_controller/command",
+        lift_topic = self.topic_publisher("/robot/lift_joint_position_controller/command",
                                           "std_msgs/Float64")
         t0 = time.time()
         while time.time()-t0 < 2:
             lift_topic.publish({"data": height})
         lift_topic.unadvertise()
 
-    def rotate_in_place(self, deg=90, vel=0.1):
-        pass
+    def rotate_in_place(self, rad=(math.pi/2), vel=0.01):
+        move_base = self.topic_publisher("/robot/cmd_vel", "geometry_msgs/Twist")
+        self.cmd_vel.angular.z = vel
+        t0 = time.time()
+        while abs(rad) > (time.time()-t0)*abs(vel):
+            move_base.publish(Message(self.cmd_vel))
+            time.sleep(0.01)
+        self.cmd_vel_clear()
+        x_vec = [math.cos(rad), math.sin(rad), 0]
+        y_vec = [-math.sin(rad), math.cos(rad), 0]
+        T = Transformation.from_frame(Frame([0,0,0], x_vec, y_vec))
+        self.robot_frame.transform(T)
+        move_base.unadvertise()
 
     def stop_robot(self):
-        pass
+        self.cmd_vel_clear()
+        move_base = self.topic_publisher("/robot/cmd_vel", "geometry_msgs/Twist")
+        move_base.publish(Message(self.cmd_vel))
+        move_base.unadvertise()
 
+    def move_from_frame_to_frame(self, from_frame, to_frame, vel=0.01, linear=True):
+        vec = Vector.from_start_end(from_frame.point, to_frame.point)
+        rad1 = from_frame.xaxis.angle_signed(vec, [0,0,1])
+        rad2 = vec.angle_signed(to_frame.xaxis, [0,0,1])
+        self.rotate_in_place(rad1, vel*(rad1/abs(rad1)))
+        self.move_forward(vel=vel, dist=vec.length)
+        self.rotate_in_place(rad2, vel*(rad2/abs(rad2)))
+
+    def move_to_frame(self, frame, vel=0.01, orient=False):
+        vec = Vector.from_start_end(self.robot_frame.point, frame.point)
+        rad1 = self.robot_frame.xaxis.angle_signed(vec, [0,0,1])
+        rad2 = vec.angle_signed(frame.xaxis, [0,0,1])
+        if rad1 > 0:
+            self.rotate_in_place(rad1, vel*(rad1/abs(rad1)))
+        self.move_forward(vel=vel, dist=vec.length)
+        if orient and rad2!=0:
+            self.rotate_in_place(rad2, vel*(rad2/abs(rad2)))
 
 if __name__ == "__main__":
-    mb = MobileBaseControl(host='192.168.0.30', port=9090)
+    mb = MobileBaseControl(host='192.168.0.4', port=9090)
     mb.connect()
     time.sleep(1)
-    # print(mb.ros.get_topics())
     # mb.list_controllers()
     # print(mb.ros.get_nodes())
     # print(mb.ros.get_services())
@@ -174,11 +228,17 @@ if __name__ == "__main__":
     # mb.arm_move_joint(config)
     # config = Configuration.from_revolute_values([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
     # mb.arm_move_joint(config)
-    # mb.set_lift_height(0.2)
-    # mb.move_forward()
-    mb.move_backward()
+    mb.set_lift_height(0.0)
+    # mb.rotate_in_place()
+    # mb.move_backward()
     # time.sleep(1)
     # mb.move_radial(deg=90)
+    # frame1 = Frame([0,0,0], [1,0,0], [0,1,0])
+    # xvec = [math.cos(math.radians(15)),math.sin(math.radians(15)),0]
+    # yvec = [-math.sin(math.radians(15)),math.cos(math.radians(15)),0]
+    # frame2 = Frame([0.3,-0.1,0], xvec, yvec)
+    # mb.move_from_frame_to_frame(frame1, frame2, vel=0.05)
+    # mb.stop_robot()
+    # mb.move_forward()
     time.sleep(1)
     mb.disconnect()
-
