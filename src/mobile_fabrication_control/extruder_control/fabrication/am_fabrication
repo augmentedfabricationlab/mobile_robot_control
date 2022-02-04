@@ -1,0 +1,70 @@
+import sys
+import ast
+from threading import Thread
+from ur_fabrication_control.direct_control.fabrication_process import Fabrication
+from ur_fabrication_control.direct_control.fabrication_process import FabricationFeedbackServer
+
+if sys.version_info[0] == 3:
+    from queue import Queue
+else:
+    from Queue import Queue
+
+class AMFabricationFeedbackServer(FabricationFeedbackServer):
+    def extruder_relay(self, stop, q):
+        latest_msg = 0
+        ext_msg = None
+        while True:
+            if stop():
+                break
+            if len(self.msgs) < latest_msg:
+                if "EXTRUDERMSG" in self.msgs[latest_msg]:
+                    ast.literal_eval()
+            if ext_msg is not None and q.empty():
+                q.put(ext_msg)
+            
+
+"EXTRUDERMSG:{'state':0,'speed':1000,'maxspeed':17000}"
+
+class AM_Fabrication(Fabrication):
+    def __init__(self):
+        super().__init__()
+        self.ext_ip = None
+        self.ext_port = None
+
+    def set_feedback_server(self, ip, port):
+        self.server = AMFabricationFeedbackServer(ip, port)
+
+    def _join_threads(self):
+        super()._join_threads()
+        if hasattr(self, "relay_thread"):
+            self.relay_thread.join()
+            del self.relay_thread
+
+    def _create_threads(self):
+        super()._create_threads()
+        self.ext_q = Queue()
+        self.relay_thread = Thread(target=self.server.extruder_relay,
+                                   args=(lambda: self._stop_thread, self.ext_q))
+        self.relay_thread.daemon = True
+
+    def start(self):
+        super().start()
+        if self.tasks_available():
+            self.relay_thread.start()
+            print("Started relay thread")
+
+    def run(self, stop_thread, q):
+        while self.tasks_available():
+            if stop_thread():
+                self._performing_task = False
+                break
+            elif not self._performing_task:
+                self.current_task = self.get_next_task()
+                q.put(self.tasks[self.current_task]["exit_message"])
+                self.perform_task(self.tasks[self.current_task]['task'])
+                self._performing_task = True
+            elif self._performing_task and not q.unfinished_tasks:
+                q.join()
+                print("joined task {}".format(self.current_task))
+                self.tasks[self.current_task]["state"] = "completed"
+                self._performing_task = False
