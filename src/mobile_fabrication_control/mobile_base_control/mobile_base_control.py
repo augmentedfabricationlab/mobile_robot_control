@@ -106,20 +106,20 @@ class MobileBaseControl():
 
     def move_forward(self, vel=0.01, dist=0.1):
         move_base = self.topic_publisher("/robot/cmd_vel", "geometry_msgs/Twist")
-        self.cmd_vel.linear.x = vel
+        self.cmd_vel.linear.x = vel*(dist/abs(dist))
         t0 = time.time()
-        while dist > (time.time()-t0)*abs(vel):
+        while abs(dist) > (time.time()-t0)*vel:
             move_base.publish(Message(self.cmd_vel))
             time.sleep(0.01)
         self.cmd_vel_clear()
-        T = Transformation.from_frame(Frame([dist*(vel/abs(vel)),0,0], [1,0,0], [0,1,0]))
+        T = Transformation.from_frame(Frame([dist,0,0], [1,0,0], [0,1,0]))
         self.robot_frame.transform(T)
         move_base.unadvertise()
 
-    def move_backward(self, vel=-0.01, dist=0.1):
-        self.move_forward(vel=vel, dist=dist)
+    def move_backward(self, vel=0.01, dist=-0.1):
+        self.move_forward(vel=vel, dist=-dist)
 
-    def move_radial(self, deg=90, vel=1, dist=5):
+    def move_radial(self, deg=90, vel=0.1, dist=0.1):
         move_base = self.topic_publisher("/robot/cmd_vel", "geometry_msgs/Twist")
         x_vel = math.cos(math.radians(deg))*vel
         y_vel = math.sin(math.radians(deg))*vel
@@ -214,6 +214,10 @@ class MobileBaseControl():
         if orient and rad2!=0:
             self.rotate_in_place(rad2, vel*(rad2/abs(rad2)))
 
+    def record_scan(self):
+        pass
+        
+
 if __name__ == "__main__":
     mb = MobileBaseControl(host='192.168.0.4', port=9090)
     mb.connect()
@@ -228,17 +232,17 @@ if __name__ == "__main__":
     # mb.arm_move_joint(config)
     # config = Configuration.from_revolute_values([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
     # mb.arm_move_joint(config)
-    mb.set_lift_height(0.0)
+    # mb.set_lift_height(0.0)
     # mb.rotate_in_place()
-    # mb.move_backward()
+    mb.move_backward(vel=0.05, dist=0.2)
     # time.sleep(1)
-    # mb.move_radial(deg=90)
+    # mb.move_radial(deg=-90, dist=0.5)
     # frame1 = Frame([0,0,0], [1,0,0], [0,1,0])
     # xvec = [math.cos(math.radians(15)),math.sin(math.radians(15)),0]
     # yvec = [-math.sin(math.radians(15)),math.cos(math.radians(15)),0]
     # frame2 = Frame([0.3,-0.1,0], xvec, yvec)
     # mb.move_from_frame_to_frame(frame1, frame2, vel=0.05)
     # mb.stop_robot()
-    # mb.move_forward()
+    # mb.move_forward(vel=0.05, dist=0.2)
     time.sleep(1)
     mb.disconnect()
