@@ -18,12 +18,13 @@ class AMFabricationFeedbackServer(FabricationFeedbackServer):
                 break
             if len(self.msgs) < latest_msg:
                 if "EXTRUDERMSG" in self.msgs[latest_msg]:
-                    ast.literal_eval()
+                    ext_msg = ast.literal_eval(self.msgs[latest_msg])
             if ext_msg is not None and q.empty():
                 q.put(ext_msg)
+                ext_msg = None
             
 
-"EXTRUDERMSG:{'state':0,'speed':1000,'maxspeed':17000}"
+"{EXTRUDERMSG:{'state':0,'speed':1000,'maxspeed':17000}}"
 
 class AM_Fabrication(Fabrication):
     def __init__(self):
@@ -41,10 +42,17 @@ class AM_Fabrication(Fabrication):
             del self.relay_thread
 
     def _create_threads(self):
-        super()._create_threads()
+        self._stop_thread = False
+        self.ur_q = Queue()
         self.ext_q = Queue()
+        self.task_thread = Thread(target=self.run,
+                                  args=(lambda: self._stop_thread, self.ur_q, self.ext_q))
+        self.listen_thread = Thread(target=self.server.listen,
+                                    args=(lambda: self._stop_thread, self.ur_q))
         self.relay_thread = Thread(target=self.server.extruder_relay,
                                    args=(lambda: self._stop_thread, self.ext_q))
+        self.task_thread.daemon = True
+        self.listen_thread.daemon = True
         self.relay_thread.daemon = True
 
     def start(self):
@@ -53,18 +61,24 @@ class AM_Fabrication(Fabrication):
             self.relay_thread.start()
             print("Started relay thread")
 
-    def run(self, stop_thread, q):
+    def run(self, stop_thread, ur_q, ext_q):
         while self.tasks_available():
             if stop_thread():
                 self._performing_task = False
                 break
-            elif not self._performing_task:
-                self.current_task = self.get_next_task()
-                q.put(self.tasks[self.current_task]["exit_message"])
-                self.perform_task(self.tasks[self.current_task]['task'])
-                self._performing_task = True
-            elif self._performing_task and not q.unfinished_tasks:
-                q.join()
-                print("joined task {}".format(self.current_task))
-                self.tasks[self.current_task]["state"] = "completed"
-                self._performing_task = False
+            else:
+                ### UR communication
+                if not self._performing_task:
+                    self.current_task = self.get_next_task()
+                    ur_q.put(self.tasks[self.current_task]["exit_message"])
+                    self.perform_task(self.tasks[self.current_task]['task'])
+                    self._performing_task = True
+                elif self._performing_task and not ur_q.unfinished_tasks:
+                    ur_q.join()
+                    print("joined task {}".format(self.current_task))
+                    self.tasks[self.current_task]["state"] = "completed"
+                    self._performing_task = False
+
+                ### Extruder communication
+                if ext_q.unfinished_tasks:
+                    task_ext_msg = ext_q.get()

@@ -128,15 +128,16 @@ class ExtruderClient():
 
 
 if __name__ == "__main__":
-    ec = ExtruderClient()
+    ec = ExtruderClient(host="192.168.0.220", port=50004)
     ec.connect()
     time.sleep(0.5)
     print("Connection: ", ec.connected)
     wait = False
-    ec.send_motordata(0, 0, 1600, 800, wait)
-    ec.send_motorstate(0, 1, wait)
-    time.sleep(5)
-    ec.send_motorstate(0, 0, wait)
+    # ec.send_motordata(0, 0, 1600, 800, wait)
+    # ec.send_motorstate(0, 1, wait)
+    # time.sleep(5)
+    # ec.send_motorstate(0, 0, wait)
+    ec.send_set_do(8,1)
     time.sleep(0.5)
     ec.close()
     print("Connection: ", ec.connected)
