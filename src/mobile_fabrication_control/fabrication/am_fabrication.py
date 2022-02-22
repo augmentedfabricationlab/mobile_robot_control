@@ -45,14 +45,14 @@ class AMFabricationFeedbackServer(FabricationFeedbackServer):
                 node_msg = None
             elif node_msg is None and len(self.msgs) > latest_msg:
                 if "NODE" in self.msgs[latest_msg]:
-                    msg = self.msgs[latest_msg]
+                    msg = repr(self.msgs[latest_msg])[1:-1].replace("'", '"')
                     node_msg = json.loads(msg)
                     latest_msg += 1
 
 
 class AMFabrication(Fabrication):
     def __init__(self):
-        self.server = None 
+        self.server = None
         self.tasks = {}
         self.stop_task = None
         self._stop_thread = False
@@ -90,7 +90,7 @@ class AMFabrication(Fabrication):
             self.ec.send_set_do(8, node.air_state)
             self.air_state = node.air_state
             self.ec.close()
-        
+
     def _join_threads(self):
         self._stop_thread = True
         if hasattr(self, "task_thread"):
@@ -132,7 +132,7 @@ class AMFabrication(Fabrication):
             self.task_thread.start()
             print("Started task thread")
         else:
-            print("No_tasks_available")            
+            print("No_tasks_available")
 
     def stop(self):
         self.perform_task(self.stop_task)
