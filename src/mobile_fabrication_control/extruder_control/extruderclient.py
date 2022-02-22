@@ -24,7 +24,7 @@ class ExtruderClient():
         self.msg_rcv = bytearray([])
 
     def connect(self):
-        if not self.connected:
+        if not hasattr(self, "sock"):
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.connect((self.host, self.port))
             connected_msg = "Connected to server {} on port {}"
@@ -32,8 +32,10 @@ class ExtruderClient():
             self.connected = True
 
     def close(self):
-        self.sock.close()
-        self.connected = False
+        if hasattr(self, "sock"):
+            self.sock.close()
+            self.connected = False
+            del self.sock
 
     # Send commands
 

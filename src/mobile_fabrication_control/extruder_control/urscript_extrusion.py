@@ -16,7 +16,7 @@ __all__ = [
 ]
 
 
-class URScript_Extrusion(ExtruderMixins, URScript):
+class URScript_Extrusion(URScript, ExtruderMixins):
     def __init__(self, ur_ip=None, ur_port=None, ext_ip=None, ext_port=None):
         super(URScript_Extrusion, self).__init__(ur_ip, ur_port)
         self.ext_setup(ext_ip, ext_port)
