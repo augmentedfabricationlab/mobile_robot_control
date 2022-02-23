@@ -35,19 +35,15 @@ class AMFabricationFeedbackServer(FabricationFeedbackServer):
 
     def node_relay(self, stop, q):
         latest_msg = 0
-        node_msg = None
         while True:
             if stop():
                 break
-            if node_msg is not None and q.empty():
-                q.put(node_msg)
-            elif not q.unfinished_tasks and node_msg is not None:
-                node_msg = None
-            elif node_msg is None and len(self.msgs) > latest_msg:
-                if "NODE" in self.msgs[latest_msg]:
+            elif len(self.msgs) > latest_msg:
+                if 'NODE' in self.msgs[latest_msg]:
                     msg = repr(self.msgs[latest_msg])[1:-1].replace("'", '"')
                     node_msg = json.loads(msg)
-                    latest_msg += 1
+                    q.put(node_msg)
+                latest_msg += 1
 
 
 class AMFabrication(Fabrication):
@@ -72,6 +68,9 @@ class AMFabrication(Fabrication):
         self.server = AMFabricationFeedbackServer(ip, port)
 
     def stop_extruder(self):
+        self.ext_state = 0
+        self.ext_speed = 0
+        self.air_state = 0
         self.ec.connect()
         self.ec.send_motordata(0, 17000, 0)
         self.ec.send_set_do(8, 0)
@@ -124,6 +123,7 @@ class AMFabrication(Fabrication):
         self._join_threads()
         if self.tasks_available():
             self.server.start()
+            self.server.clear()
             self._create_threads()
             self.listen_thread.start()
             print("Started listening thread")
@@ -135,9 +135,9 @@ class AMFabrication(Fabrication):
             print("No_tasks_available")
 
     def stop(self):
-        self.perform_task(self.stop_task)
         self.stop_extruder()
-        self.close()
+        self.perform_task(self.stop_task)
+        self._join_threads()
 
     def close(self):
         self._join_threads()
