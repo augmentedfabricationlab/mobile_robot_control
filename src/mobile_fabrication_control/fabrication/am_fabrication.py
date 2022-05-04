@@ -1,5 +1,8 @@
 import sys
 from threading import Thread
+from time import time
+
+from ur_fabrication_control.direct_control import urscript
 
 from ..extruder_control import ExtruderClient
 from ur_fabrication_control.direct_control.fabrication_process import Fabrication
@@ -68,27 +71,29 @@ class AMFabrication(Fabrication):
         self.server = AMFabricationFeedbackServer(ip, port)
 
     def stop_extruder(self):
-        self.ext_state = 0
-        self.ext_speed = 0
-        self.air_state = 0
-        self.ec.connect()
-        self.ec.send_motordata(0, 17000, 0)
-        self.ec.send_set_do(8, 0)
-        self.ec.close()
+        if hasattr(self, "ec"):
+            self.ext_state = 0
+            self.ext_speed = 0
+            self.air_state = 0
+            self.ec.connect()
+            self.ec.send_motordata(0, 17000, 0)
+            self.ec.send_set_do(8, 0)
+            self.ec.close()
 
     def relay_to_extruder(self, node):
-        if (self.ext_state != node.ext_state
-           or self.ext_speed != node.ext_speed):
-            self.ec.connect()
-            self.ec.send_motordata(node.ext_state, 17000, node.ext_speed)
-            self.ext_state = node.ext_state
-            self.ext_speed = node.ext_speed
-            self.ec.close()
-        if self.air_state != node.air_state:
-            self.ec.connect()
-            self.ec.send_set_do(8, node.air_state)
-            self.air_state = node.air_state
-            self.ec.close()
+        if hasattr(self, "ec"):
+            if (self.ext_state != node.ext_state
+            or self.ext_speed != node.ext_speed):
+                self.ec.connect()
+                self.ec.send_motordata(node.ext_state, 17000, node.ext_speed)
+                self.ext_state = node.ext_state
+                self.ext_speed = node.ext_speed
+                self.ec.close()
+            if self.air_state != node.air_state:
+                self.ec.connect()
+                self.ec.send_set_do(8, node.air_state)
+                self.air_state = node.air_state
+                self.ec.close()
 
     def _join_threads(self):
         self._stop_thread = True
@@ -166,11 +171,12 @@ class AMFabrication(Fabrication):
 
                 # Extruder communication
                 if not self._performing_ext_task and node_q.unfinished_tasks:
-                    node_msg = node_q.get()
+                    self.node_msg = node_q.get()
+                    print(self.node_msg)
                     self._performing_ext_task = True
                 elif self._performing_ext_task:
-                    layer = self.am_model.layer(node_msg["LAYER"])
-                    node = layer.node(node_msg["NODE"])
+                    layer = self.am_model.layer(self.node_msg["LAYER"])
+                    node = layer.node(self.node_msg["NODE"])
                     node.is_constructed = True
                     self.relay_to_extruder(node)
                     node_q.task_done()
@@ -179,8 +185,58 @@ class AMFabrication(Fabrication):
 
 if __name__ == "__main__":
     import json
-    # msg = '{"EXTRUDERMSG":{"MSG_MOTORDATA":{"state":0,"speed":1000,"maxspeed":17000}, "MSG_DODATA":{"pin":8, "state":0}}}'
-    msg = '{"LAYER":0, "NODE":0}'
-    print(list(json.loads(msg).values())[0])
+    import time
+    from compas.geometry import Frame
+    from am_information_model import AMModel, Layer, Node
+    from mobile_fabrication_control.extruder_control.urscript_extrusion import URScript_Extrusion
 
-    # evmsg = ast.literal_eval(msg)
+    ur_ip = "192.168.56.102"
+    ur_port = 30002
+    server_ip = "192.168.56.101"
+    server_port = 50003
+
+    am_model = AMModel()
+    layer = Layer()
+    for i in range(15):
+        new_frame = Frame([-1+(0.1*i),0.5,0], [1,0,0], [0,-1,0])
+        new_node = Node(new_frame, 0.005)
+        new_node.ext_speed = 100*i
+        new_node.ext_state = (i!=14)
+        new_node.air_state = (i!=14)
+        layer.add_node(new_node)
+    am_model.add_layer(layer)
+
+    ur_script = URScript_Extrusion(ur_ip=ur_ip, ur_port=ur_port)
+    ur_script.start()
+    ur_script.socket_open(server_ip, server_port, "Feedbackserver")
+    for key, node in layer.nodes():
+        node_msg = {"LAYER":0, "NODE":key}
+        ur_script.socket_send_line_string(str(node_msg), socket_name="Feedbackserver")
+        ur_script.add_line("sleep(0.5)")
+    ur_script.socket_send_line_string("Layer0_completed", socket_name="Feedbackserver")
+    ur_script.socket_close(name="Feedbackserver")
+    ur_script.end()
+    ur_script.generate()
+    
+    print(ur_script.script)
+
+    stop_script = URScript_Extrusion(ur_ip=ur_ip, ur_port=ur_port)
+    stop_script.start()
+    stop_script.end()
+    stop_script.generate()
+
+    fabrication = AMFabrication()
+    fabrication.set_feedback_server(server_ip, server_port)
+    fabrication.am_model = am_model.copy()
+    fabrication.add_task(ur_script, "Layer0_completed")
+    fabrication.stop_task = stop_script
+    
+    fabrication.start()
+
+    k = 0
+    while k<1000:
+        time.sleep(0.1)
+        k+=1
+    
+    fabrication.stop()
+    print(fabrication.server.msgs)
