@@ -145,8 +145,8 @@ def get_points():
 
 
 if __name__ == "__main__":
-    # directory = os.path.dirname(os.path.abspath(__file__))
-    # filepath = os.path.join(directory, "data", "test_00.ply")
-    # export_to_ply(filepath)
-    # print(get_depth_matrix())
+    directory = os.path.dirname(os.path.abspath(__file__))
+    filepath = os.path.join(directory, "data", "test_00.ply")
+    export_to_ply(filepath)
+    print(get_depth_matrix())
     pts = get_points()

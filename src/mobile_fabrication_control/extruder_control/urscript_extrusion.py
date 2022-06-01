@@ -1,5 +1,4 @@
-import sys, time
-sys.path.append("C:/Users/Gido/Documents/workspace/development/ur_fabrication_control/src")
+import time
 from ur_fabrication_control.direct_control import URScript
 from .extruder_mixins import ExtruderMixins
 
