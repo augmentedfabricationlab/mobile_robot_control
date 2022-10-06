@@ -538,7 +538,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://ewellix_description/meshes/ewellix_lift_base_900mm.stl"/>
+        <mesh filename="package://ewellix_description/meshes/ewellix_lift_base_700mm_remade.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.7 0.7 0.7 1"/>
@@ -547,7 +547,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="-0.005 0 0.00235"/>
       <geometry>
-        <mesh filename="package://ewellix_description/meshes/ewellix_lift_base_900mm.stl"/>
+        <mesh filename="package://ewellix_description/meshes/ewellix_lift_base_700mm_remade.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -558,7 +558,7 @@
   </link>
   <!-- Lift base link joint -->
   <joint name="robot_ewellix_lift_base_joint" type="fixed">
-    <origin rpy="0 0 0" xyz="0.207 0.0 0.3"/>
+    <origin rpy="0 0 0" xyz="0.275 0.0 0.3"/>
     <parent link="robot_base_link"/>
     <child link="robot_ewellix_lift_base_link"/>
   </joint>
@@ -567,7 +567,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://ewellix_description/meshes/ewellix_lift_top_900mm.stl"/>
+        <mesh filename="package://ewellix_description/meshes/ewellix_lift_top_700mm_cut.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.7 0.7 0.7 1"/>
@@ -576,7 +576,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="-0.005 0 0.00235"/>
       <geometry>
-        <mesh filename="package://ewellix_description/meshes/ewellix_lift_top_900mm.stl"/>
+        <mesh filename="package://ewellix_description/meshes/ewellix_lift_top_700mm_cut.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -589,8 +589,8 @@
   <joint name="robot_ewellix_lift_top_joint" type="prismatic">
     <parent link="robot_ewellix_lift_base_link"/>
     <child link="robot_ewellix_lift_top_link"/>
-    <origin rpy="0 0 0" xyz="0 0 0.730"/>
-    <limit effort="1000" lower="0.0" upper="0.9" velocity="0.088"/>
+    <origin rpy="0 0 0" xyz="0 0 0.620"/>
+    <limit effort="1000" lower="0.0" upper="0.7" velocity="0.088"/>
     <axis xyz="0 0 1"/>
   </joint>
   <!--
