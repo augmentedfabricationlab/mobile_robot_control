@@ -9,7 +9,7 @@ services:
       - roscore
 
   ros-bridge:
-    image: augmentedfabricationlab/ros-rbvoguixl-ur10e-planner:latest
+    image: augmentedfabricationlab/rbvogui:latest
     container_name: ros-bridge
     environment:
       - "ROS_HOSTNAME=ros-bridge"

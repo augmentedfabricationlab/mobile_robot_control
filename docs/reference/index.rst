@@ -3,6 +3,6 @@ API Reference
 
 .. testsetup::
 
-    from mobile_additive_manufacturing import *
+    from mobile_robot_control import *
 
-.. automodule:: mobile_additive_manufacturing
+.. automodule:: mobile_robot_control

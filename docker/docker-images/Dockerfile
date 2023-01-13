@@ -19,21 +19,17 @@ RUN echo "Building tools for ROS" \
     # Update apt-get because its cache is always cleared after installs to keep image size down
     && apt-get update \
     # && apt-get update && apt-get -y upgrade \
-    # Ewellix Lift package
+    && git clone https://github.com/RobotnikAutomation/joint_read_command_controller.git \
+    && git clone -b melodic-devel https://github.com/RobotnikAutomation/rbvogui_common.git \
+    && git clone -b melodic-1.0.0 https://github.com/RobotnikAutomation/robotnik_msgs.git \
+    && git clone -b melodic-devel https://github.com/RobotnikAutomation/robotnik_sensors.git \
+    && git clone https://github.com/RobotnikAutomation/robotnik_pad.git \
+    && git clone -b melodic-devel https://github.com/RobotnikAutomation/rbvogui_sim.git \
+    && git clone https://github.com/RobotnikAutomation/rcomponent.git \
+    && git clone https://github.com/RobotnikAutomation/teleop_panel.git \
     && git clone https://github.com/RobotnikAutomation/ewellix_description.git \
-    # # UR packages
-    # && git clone https://github.com/UniversalRobots/Universal_Robots_ROS_Driver.git Universal_Robots_ROS_Driver \
-    # && git clone -b calibration_devel https://github.com/fmauch/universal_robot.git fmauch_universal_robot \
-    # Robotnik mobile base packages
-    && git clone -b melodic-intrepid-devel https://github.com/RobotnikAutomation/rbvogui_common.git \
-    # && git clone https://github.com/RobotnikAutomation/rbvogui_sim.git \
-    # && git clone https://github.com/RobotnikAutomation/joint_read_command_controller.git \
-    # && git clone https://github.com/RobotnikAutomation/rcomponent.git \
-    # && git clone https://github.com/RobotnikAutomation/robotnik_pad.git \
-    && git clone -b melodic-devel https://github.com/RobotnikAutomation/robotnik_msgs.git \
-    && git clone https://github.com/RobotnikAutomation/robotnik_sensors.git \
-    # && git clone https://github.com/RobotnikAutomation/teleop_panel.git \
-    # && git clone https://github.com/RobotnikAutomation/velodyne_simulator.git \
+    && git clone https://github.com/RobotnikAutomation/velodyne_simulator.git \
+    && git clone -b melodic-devel https://github.com/ros/xacro.git \
     # Install dependencies
     && cd $CATKIN_WS \
     && rosdep install -y --from-paths . --ignore-src --rosdistro ${ROS_DISTRO}\
