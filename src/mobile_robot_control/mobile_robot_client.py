@@ -1,6 +1,8 @@
 import time
 import math
 from compas.geometry import Frame
+from compas.geometry import Point
+from compas.geometry import Quaternion
 from compas.geometry import Vector
 from compas.geometry import Transformation
 from compas.robots import Configuration
@@ -12,62 +14,151 @@ from compas_fab.robots.time_ import Duration
 from roslibpy import Message
 from roslibpy import Topic
 from roslibpy import Service
+from roslibpy import tf
 from roslibpy.core import ServiceRequest
+from threading import Thread
+from compas_fab.backends.interfaces.client import ClientInterface
+from compas_fab.backends.ros.planner import MoveItPlanner
 
+__all__ = [
+    "AttrDict",
+    "MobileRobotClient"
+]
 
 class AttrDict(dict):
     def __init__(self, *args, **kwargs):
         super(AttrDict, self).__init__(*args, **kwargs)
         self.__dict__ = self
 
-
-class MobileBaseControl():
+class MobileRobotClient(object):
     def __init__(self, host='localhost', port=9090):
-        # self.ros = roslibpy.Ros(host='localhost', port=9090)
-        self.ros = RosClient(host=host, port=port)
+        """_summary_
+
+        Args:
+            host (str, optional): IP address of ROS master. Defaults to 'localhost'.
+            port (int, optional): Port of ROS master. Defaults to 9090.
+        """
+        self.ros_client = RosClient(host=host, port=port)
+        
+        self.threads = {}
+        
+        self.tf = None
+        self.topics = {}
+        self.services = {}
+        self.actions = {}
+        
         self.cmd_vel = AttrDict(linear=AttrDict(x=0.0, y=0.0, z=0.0),
                                 angular=AttrDict(x=0.0, y=0.0, z=0.0))
+        self.tf_frame = None
         self.robot_frame = Frame.worldXY()
-        self.topics = {}
-
-    def cmd_vel_clear(self):
-        self.cmd_vel.linear.x = 0.0
-        self.cmd_vel.linear.y = 0.0
-        self.cmd_vel.linear.z = 0.0
-        self.cmd_vel.angular.x = 0.0
-        self.cmd_vel.angular.y = 0.0
-        self.cmd_vel.angular.z = 0.0
-
-    def topic_subscriber(self, name, msg=None, callback=None):
-        if name not in self.topics.keys():
-            self.set_topic(name, msg)
-        if not self.topics[name].is_subscribed:
-            self.topics[name].subscribe(callback)
-        return self.topics[name]
-
-    def topic_publisher(self, name, msg=None):
-        if name not in self.topics.keys():
-            self.set_topic(name, msg)
-        if not self.topics[name].is_advertised:
-            self.topics[name].advertise()
-        return self.topics[name]
-
-    def get_topic(self, name):
-        return self.topics[name]
-
-    def set_topic(self, name, msg):
-        self.topics[name] = Topic(self.ros, name, msg)
-        return self.topics[name]
-
+        
     def connect(self):
-        self.ros.run()
-        print("Is ROS connected? ", self.ros.is_connected)
+        """_summary_
+        """
+        self.ros_client.run()
+        print("Is ROS connected? ", self.ros_client.is_connected)
 
     def disconnect(self):
-        self.ros.close()
+        """_summary_
+        """
+        self.ros_client.close()
+    
+    def start_thread(self, thread_name, target, **kwargs):
+        if thread_name not in self.threads.keys():
+            self.threads[thread_name] = {"thread": None, "break_loop": False}
+            self.threads[thread_name]["thread"] = Thread(name=thread_name, target=target, args=(thread_name, kwargs))
+        self.threads[thread_name]["break_loop"] = False
+        self.threads[thread_name]["thread"].start()
+    
+    def stop_thread(self, thread_name):
+        if thread_name in self.threads.keys():
+            self.threads[thread_name]["break_loop"] = True
+
+    def tf_listener_node(self, thread_name, target_frame, reference_frame):
+        self.tf_subscribe(target_frame, reference_frame)
+        while self.ros_client.is_connected:
+            time.sleep(1)
+            if self.threads[thread_name]["break_loop"] == True or self.tf_frame is not None:
+                self.threads[thread_name]["break_loop"] = False
+                #self.threads.pop(thread_name)
+                break
+        self.tf_unsubscribe(target_frame)
+        
+    def tf_subscribe(self, target_frame, reference_frame):
+        """_summary_
+
+        Args:
+            target_frame (str): String of the name of the target frame requested.
+            reference_frame (str): String of the name of the reference frame requested.
+        """
+        self.tf = tf.TFClient(self.ros_client, fixed_frame=reference_frame, angular_threshold=0.0, rate=10.0)
+        self.tf.subscribe(target_frame, self._receive_tf_frame_callback)
+        
+    def _receive_tf_frame_callback(self, message):
+        """_summary_
+
+        Args:
+            message (_type_): _description_
+        """
+        pose_point = Point(message['translation']['x'], message['translation']['y'], message['translation']['z'])
+        pose_quaternion = Quaternion(message['rotation']['w'], message['rotation']['x'], message['rotation']['y'], message['rotation']['z'])
+        pose_frame = Frame.from_quaternion(pose_quaternion, pose_point)
+        self.tf_frame = pose_frame
+        
+    def clean_tf_frame(self):
+        self.tf_frame = None
+
+    def tf_unsubscribe(self, target_frame):
+        """_summary_
+
+        Args:
+            target_frame (_type_): _description_
+        """
+        self.tf.unsubscribe(target_frame)
+        self.tf.dispose()
+        
+    def action_subscribe(self, server_name, action_name, timeout=None):
+        pass
+
+    def topic_subscribe(self, topic_name, msg_type=None, callback=None):
+        if topic_name not in self.topics.keys():
+            self.set_topic(topic_name, msg_type)
+        if not self.topics[topic_name].is_subscribed:
+            self.topics[topic_name].subscribe(callback)
+            
+    def topic_unsubscribe(self, topic_name):
+        if topic_name in self.topics.keys():
+            if self.topics[topic_name].is_subscribed:
+                self.topics[topic_name].unsubscribe()
+            self.remove_topic(topic_name)
+
+    def topic_publish(self, topic_name, msg_type=None):
+        if topic_name not in self.topics.keys():
+            self.set_topic(topic_name, msg_type)
+        if not self.topics[topic_name].is_advertised:
+            self.topics[topic_name].advertise()
+            
+    def topic_unpublish(self, topic_name):
+        if topic_name in self.topics.keys():
+            if self.topics[topic_name].is_advertised:
+                self.topics[topic_name].unadvertise()
+            self.remove_topic(topic_name)
+
+    def get_topic(self, topic_name):
+        return self.topics[topic_name]
+
+    def set_topic(self, topic_name, msg_type):
+        self.topics[topic_name] = Topic(self.ros_client, topic_name, msg_type)
+        return self.topics[topic_name]
+    
+    def remove_topic(self, topic_name):
+        self.topics.pop(topic_name)
+    
+    def print_msg_callback(self, message):
+        print(message['data'])
 
     def load_from_robot(self):
-        self.robot = self.ros.load_robot()
+        self.robot = self.ros_client.load_robot()
 
     def load_from_urdf(self):
         raise NotImplementedError
@@ -81,9 +172,14 @@ class MobileBaseControl():
     def condition_laser(self):
         # self.topic_subscriber('/robot/front_3d_laser/points', callback)
         raise NotImplementedError
-
-    def print_msg_callback(self, message):
-        print(message['data'])
+        
+    def cmd_vel_clear(self):
+        self.cmd_vel.linear.x = 0.0
+        self.cmd_vel.linear.y = 0.0
+        self.cmd_vel.linear.z = 0.0
+        self.cmd_vel.angular.x = 0.0
+        self.cmd_vel.angular.y = 0.0
+        self.cmd_vel.angular.z = 0.0
 
     def echo_joint_states(self):
         # jst = self.topic_subscriber(name="/robot/arm/scaled_pos_traj_controller/state",
@@ -100,12 +196,12 @@ class MobileBaseControl():
         #                             callback=lambda message: print(message['data']))
 
     def list_controllers(self):
-        list_controllers_service = Service(self.ros, "/robot/controller_manager/list_controllers", "/robot/controller_manager/list_controllers")
+        list_controllers_service = Service(self.ros_client, "/robot/controller_manager/list_controllers", "/robot/controller_manager/list_controllers")
         request = ServiceRequest()
         print(list_controllers_service.call(request))
 
     def move_forward(self, vel=0.01, dist=0.1):
-        move_base = self.topic_publisher("/robot/cmd_vel", "geometry_msgs/Twist")
+        move_base = self.topic_publish("/robot/cmd_vel", "geometry_msgs/Twist")
         self.cmd_vel.linear.x = vel*(dist/abs(dist))
         t0 = time.time()
         while abs(dist) > (time.time()-t0)*vel:
@@ -120,7 +216,7 @@ class MobileBaseControl():
         self.move_forward(vel=vel, dist=-dist)
 
     def move_radial(self, deg=90, vel=0.1, dist=0.1):
-        move_base = self.topic_publisher("/robot/cmd_vel", "geometry_msgs/Twist")
+        move_base = self.topic_publish("/robot/cmd_vel", "geometry_msgs/Twist")
         x_vel = math.cos(math.radians(deg))*vel
         y_vel = math.sin(math.radians(deg))*vel
         self.cmd_vel.linear.x = x_vel
@@ -135,12 +231,12 @@ class MobileBaseControl():
         move_base.unadvertise()
 
     def arm_move_joint(self, configuration, max_velocity=[0.2,0.2,0.2,0.2,0.2,0.2], acceleration=[1,1,1,1,1,1]):
-        joint_state_publisher = Topic(self.ros, "/robot/arm/scaled_pos_traj_controller/command", "trajectory_msgs/JointTrajectory")
+        joint_state_publisher = Topic(self.ros_client, "/robot/arm/scaled_pos_traj_controller/command", "trajectory_msgs/JointTrajectory")
         joint_state_publisher.advertise()
         treq = [pos/vel for pos, vel in zip(configuration.joint_values, max_velocity)]
         treq_max = max(*treq)
         vreq = [pos/treq_max for pos in configuration.joint_values]
-        rostime = self.ros.get_time()
+        rostime = self.ros_client.get_time()
         rostime1 = Duration.from_data(rostime)
         rostime1.secs += treq_max
         rostime1.nsecs += treq_max
@@ -169,7 +265,7 @@ class MobileBaseControl():
         joint_state_publisher.unadvertise()
 
     def set_lift_height(self, height):
-        lift_topic = self.topic_publisher("/robot/lift_joint_position_controller/command",
+        lift_topic = self.topic_publish("/robot/lift_joint_position_controller/command",
                                           "std_msgs/Float64")
         t0 = time.time()
         while time.time()-t0 < 2:
@@ -177,7 +273,7 @@ class MobileBaseControl():
         lift_topic.unadvertise()
 
     def rotate_in_place(self, rad=(math.pi/2), vel=0.01):
-        move_base = self.topic_publisher("/robot/cmd_vel", "geometry_msgs/Twist")
+        move_base = self.topic_publish("/robot/cmd_vel", "geometry_msgs/Twist")
         self.cmd_vel.angular.z = vel
         t0 = time.time()
         while abs(rad) > (time.time()-t0)*abs(vel):
@@ -192,7 +288,7 @@ class MobileBaseControl():
 
     def stop_robot(self):
         self.cmd_vel_clear()
-        move_base = self.topic_publisher("/robot/cmd_vel", "geometry_msgs/Twist")
+        move_base = self.topic_publish("/robot/cmd_vel", "geometry_msgs/Twist")
         move_base.publish(Message(self.cmd_vel))
         move_base.unadvertise()
 
@@ -219,7 +315,7 @@ class MobileBaseControl():
         
 
 if __name__ == "__main__":
-    mb = MobileBaseControl(host='192.168.0.4', port=9090)
+    mb = MobileRobotClient(host='192.168.0.4', port=9090)
     mb.connect()
     time.sleep(1)
     # mb.list_controllers()
