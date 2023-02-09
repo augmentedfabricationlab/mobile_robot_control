@@ -141,6 +141,13 @@ class MobileRobot(Robot):
         :class:`compas.geometry.Transformation`
         """
         return Transformation.from_frame(self.RCF)
+    
+    def transformation_BCF_RCF(self):
+        """Get the transformation from the base coordinate frame (BCF) to the robot arm frame (RCF).
+        -------
+        :class:`compas.geometry.Transformation`
+        """
+        return Transformation.from_frame(self.RCF).inverted()
 
     def to_local_coordinates(self, frame_WCF):
         """Represent a frame from the world coordinate system (WCF) in the robot base coordinate system (BCF).

@@ -40,12 +40,10 @@ class MobileRobotClient(object):
         """
         self.ros_client = RosClient(host=host, port=port)
         
-        self.threads = {}
-        
-        self.tf = None
         self.topics = {}
         self.services = {}
-        self.actions = {}
+        self.tf_clients = {}
+        self.action_clients = {}
         
         self.cmd_vel = AttrDict(linear=AttrDict(x=0.0, y=0.0, z=0.0),
                                 angular=AttrDict(x=0.0, y=0.0, z=0.0))
@@ -62,37 +60,20 @@ class MobileRobotClient(object):
         """_summary_
         """
         self.ros_client.close()
-    
-    def start_thread(self, thread_name, target, **kwargs):
-        if thread_name not in self.threads.keys():
-            self.threads[thread_name] = {"thread": None, "break_loop": False}
-            self.threads[thread_name]["thread"] = Thread(name=thread_name, target=target, args=(thread_name, kwargs))
-        self.threads[thread_name]["break_loop"] = False
-        self.threads[thread_name]["thread"].start()
-    
-    def stop_thread(self, thread_name):
-        if thread_name in self.threads.keys():
-            self.threads[thread_name]["break_loop"] = True
-
-    def tf_listener_node(self, thread_name, target_frame, reference_frame):
-        self.tf_subscribe(target_frame, reference_frame)
-        while self.ros_client.is_connected:
-            time.sleep(1)
-            if self.threads[thread_name]["break_loop"] == True or self.tf_frame is not None:
-                self.threads[thread_name]["break_loop"] = False
-                #self.threads.pop(thread_name)
-                break
-        self.tf_unsubscribe(target_frame)
         
     def tf_subscribe(self, target_frame, reference_frame):
         """_summary_
 
         Args:
-            target_frame (str): String of the name of the target frame requested.
-            reference_frame (str): String of the name of the reference frame requested.
+            target_frame (str): Name of the target frame requested.
+            reference_frame (str): Name of the reference frame requested.
         """
-        self.tf = tf.TFClient(self.ros_client, fixed_frame=reference_frame, angular_threshold=0.0, rate=10.0)
-        self.tf.subscribe(target_frame, self._receive_tf_frame_callback)
+        if not self.tf_clients.get(reference_frame):
+            tf_client = tf.TFClient(self.ros_client, fixed_frame=reference_frame, angular_threshold=0.0, rate=10.0)
+            self.tf_clients[reference_frame] = tf_client
+        else:
+            tf_client = self.tf_clients.get(reference_frame)
+        tf_client.subscribe(target_frame, self._receive_tf_frame_callback)
         
     def _receive_tf_frame_callback(self, message):
         """_summary_
@@ -108,14 +89,19 @@ class MobileRobotClient(object):
     def clean_tf_frame(self):
         self.tf_frame = None
 
-    def tf_unsubscribe(self, target_frame):
+    def tf_unsubscribe(self, target_frame, reference_frame):
         """_summary_
 
         Args:
             target_frame (_type_): _description_
+            reference_frame (_type_): _description_
         """
-        self.tf.unsubscribe(target_frame)
-        self.tf.dispose()
+        if self.tf_clients.get(reference_frame):
+            tf_client = self.tf_clients.get(reference_frame)
+            try:
+                tf_client.unsubscribe(target_frame, 0)
+            except TypeError:
+                pass
         
     def action_subscribe(self, server_name, action_name, timeout=None):
         pass
