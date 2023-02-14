@@ -1,24 +1,11 @@
 import time
 import math
-from compas.geometry import Frame
-from compas.geometry import Point
-from compas.geometry import Quaternion
-from compas.geometry import Vector
-from compas.geometry import Transformation
-from compas.robots import Configuration
-from compas.robots.model.joint import Joint
+from compas.geometry import Frame, Point, Quaternion, Vector, Transformation
 from compas_fab.backends import RosClient
-from compas_fab.backends.ros import messages
 from compas_fab.backends.ros.messages import JointTrajectory, JointTrajectoryPoint, Header
 from compas_fab.robots.time_ import Duration
-from roslibpy import Message
-from roslibpy import Topic
-from roslibpy import Service
-from roslibpy import tf
+from roslibpy import Message, Topic, Service, tf
 from roslibpy.core import ServiceRequest
-from threading import Thread
-from compas_fab.backends.interfaces.client import ClientInterface
-from compas_fab.backends.ros.planner import MoveItPlanner
 
 __all__ = [
     "AttrDict",

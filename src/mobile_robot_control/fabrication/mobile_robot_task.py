@@ -1,5 +1,6 @@
 from fabrication_manager.task import Task
-from ur_fabrication_control.mixins import URTask_AreaGrip
+from ur_fabrication_control.direct_control.fabrication_process import URTask
+from ur_fabrication_control.direct_control.mixins import URScript_AreaGrip
 
 import time
 
@@ -11,29 +12,31 @@ __all__ = [
 
 class MobileRobotTaskMarkerSet(Task):
     def __init__(self, robot, robot_address, marker_type="place", key=None):
-        super(MobileRobotTask, self).__init__(key)
+        super(MobileRobotTaskMarkerSet, self).__init__(key)
         self.robot = robot
         self.robot_address = robot_address
         self.marker_type = marker_type
+        self.target_frame = None
+        self.reference_frame = robot.base_frame
 
     def run(self, stop_thread):
         self.robot.mobile_client.clean_tf_frame()
-        self.robot.mobile_client.tf_subscribe(target_frame, reference_frame)
+        self.robot.mobile_client.tf_subscribe(self.target_frame, self.reference_frame)
         t0 = time.time()
-        while time.time()-t0<10:
-            if robot.mobile_client.tf_frame is not None:
-                if marker_type = "place":
+        while time.time()-t0<10 and not stop_thread():
+            if self.robot.mobile_client.tf_frame is not None:
+                if self.marker_type == "place":
                     self.robot.mobile_client.place_frame = self.robot.mobile_client.tf_frame
-                elif marker_type = "pick":
+                elif self.marker_type == "pick":
                     self.robot.mobile_client.pick_frame = self.robot.mobile_client.tf_frame
                 break
             else:
                 pass        
-        self.robot.mobile_client.tf_unsubscribe(target_frame, reference_frame)
+        self.robot.mobile_client.tf_unsubscribe(self.target_frame, self.reference_frame)
         
 class MobileRobotTaskMoveToMarker(URTask):
     def __init__(self, robot, robot_address, routine=0, key=None):
-        super(MobileRobotTask, self).__init__(key)
+        super(MobileRobotTaskMoveToMarker, self).__init__(key)
         self.robot = robot
         self.robot_address = robot_address
         self.routine = routine
