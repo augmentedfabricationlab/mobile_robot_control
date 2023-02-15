@@ -54,7 +54,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/bases/rbvogui_xl_base.stl"/>
+        <mesh filename="package://rbvogui_description/meshes/bases/rbvogui_chassis.stl"/>
       </geometry>
       <material name="darkgrey">
         <color rgba="0.1 0.1 0.1 1"/>
@@ -63,7 +63,7 @@
     <collision>
       <origin rpy="0 0 0 " xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/bases/rbvogui_xl_base.stl"/>
+        <mesh filename="package://rbvogui_description/meshes/bases/rbvogui_chassis.stl"/>
       </geometry>
     </collision>
   </link>
