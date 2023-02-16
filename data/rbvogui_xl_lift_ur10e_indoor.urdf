@@ -703,7 +703,7 @@
   <!-- Lift base link -->
   <link name="robot_ewellix_lift_base_link">
     <visual>
-      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <origin rpy="0 0 0" xyz="0 0 -0.0526"/>
       <geometry>
         <mesh filename="package://ewellix_description/meshes/ewellix_lift_base_700mm.stl"/>
       </geometry>
@@ -732,7 +732,7 @@
   <!-- Lift top link -->
   <link name="robot_ewellix_lift_top_link">
     <visual>
-      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <origin rpy="0 0 0" xyz="0 0 0.015"/>
       <geometry>
         <mesh filename="package://ewellix_description/meshes/ewellix_lift_top_700mm.stl"/>
       </geometry>
@@ -1055,7 +1055,7 @@
            Use the joint between 'base_link' and 'base_link_inertia' (a dummy
            link/frame) to introduce the necessary rotation over Z (of pi rad).
       -->
-    <origin rpy="0 0 3.14159265359" xyz="0 0 0"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
   </joint>
   <joint name="robot_arm_shoulder_pan_joint" type="revolute">
     <parent link="robot_arm_base_link_inertia"/>
@@ -1133,7 +1133,7 @@
     <child link="robot_arm_tool0"/>
   </joint>
   <joint name="robot_arm_base_joint" type="fixed">
-    <origin rpy="0 0 0.785398163397" xyz="0 0 0.015"/>
+    <origin rpy="0 0 2.35619449019" xyz="0 0 0.015"/>
     <parent link="robot_ewellix_lift_top_link"/>
     <child link="robot_arm_base_link"/>
   </joint>

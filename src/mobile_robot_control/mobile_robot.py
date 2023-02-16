@@ -24,6 +24,7 @@ class MobileRobot(Robot):
         self.semantics = semantics
         self.client = client
         self.mobile_client = mobile_client
+        self.wheel_type = "indoor"
         self.attributes = {}
         self._current_ik = {
             'request_id': None,
@@ -77,7 +78,10 @@ class MobileRobot(Robot):
     
     @property
     def RCF(self):
-        self._RCF = Frame(Point(0.275, 0.0, 1.105 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
+        if self.wheel_type == "outdoor":
+            self._RCF = Frame(Point(0.275, 0.0, 1.049 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
+        elif self.wheel_type == "indoor":
+            self._RCF = Frame(Point(0.275, 0.0, 1.021 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
         return self._RCF
      
     @property 
