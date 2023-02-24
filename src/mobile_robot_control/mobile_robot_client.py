@@ -35,6 +35,7 @@ class MobileRobotClient(object):
         self.cmd_vel = AttrDict(linear=AttrDict(x=0.0, y=0.0, z=0.0),
                                 angular=AttrDict(x=0.0, y=0.0, z=0.0))
         self.tf_frame = None
+        self.marker_frames = {}
         self.robot_frame = Frame.worldXY()
         
     def connect(self):
