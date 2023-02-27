@@ -43,13 +43,13 @@ class MobileRobotMoveToMarkerTask(URTask):
         self.radius=radius
 
     def create_urscript_for_snapshot_pose(self, marker_frame):
-        frame = Frame(marker_frame.point, marker_frame.zaxis, marker_frame.yaxis)
+        frame = Frame(marker_frame.point, marker_frame.yaxis, -marker_frame.zaxis)
         if self.routine == 0:
-            T1 = Translation.from_vector(-frame.yaxis * 0.1) * Translation.from_vector(Vector.Zaxis() * 0.3)
+            T1 = Translation.from_vector(Vector.Zaxis() * 0.3)
             R1 = Rotation.from_axis_and_angle(frame.xaxis, math.radians(-20), frame.point)
             R2 = Rotation.from_axis_and_angle(frame.yaxis, math.radians(-20), frame.point)
         else:
-            T1 = Translation.from_vector(-frame.xaxis * 0.1) * Translation.from_vector(frame.yaxis * 0.1) * Translation.from_vector(Vector.Zaxis() * 0.1)
+            T1 = Translation.from_vector(frame.yaxis * 0.05) * Translation.from_vector(Vector.Zaxis() * 0.1)
             R1 = Rotation.from_axis_and_angle(frame.xaxis, math.radians(20), frame.point)
             R2 = Rotation.from_axis_and_angle(frame.yaxis, math.radians(20), frame.point)
         T = Transformation.concatenated(R2, Transformation.concatenated(R1, T1))
@@ -75,8 +75,6 @@ class MobileRobotMoveToMarkerTask(URTask):
         self.urscript.end()
         self.urscript.generate()
         
-        self.log(self.urscript.script)
-        
     def create_urscript_for_pick_place(self, marker_frame_1, marker_frame_2):
         frame_1 = Frame(marker_frame_1.point, marker_frame_1.yaxis, -marker_frame_1.zaxis)
         frame_1_safe = frame_1.transformed(Translation.from_vector(frame_1.xaxis*0.087) * Translation.from_vector(Vector.Zaxis()*0.1))
@@ -87,7 +85,6 @@ class MobileRobotMoveToMarkerTask(URTask):
         tool_angle_axis = list(self.robot.attached_tool.frame.point) + list(self.robot.attached_tool.frame.axis_angle_vector)
         
         self.urscript = URScript_AreaGrip(*self.robot_address)
-
         self.urscript.start()
         self.urscript.set_tcp(tool_angle_axis)
         self.urscript.set_payload(1.140)
