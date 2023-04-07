@@ -17,6 +17,32 @@ class AttrDict(dict):
         super(AttrDict, self).__init__(*args, **kwargs)
         self.__dict__ = self
 
+# class TFClient2(tf.TFClient):
+#     def subscribe(self, frame_id, callback):
+#         """Subscribe to the given TF frame.
+#         Args:
+#             frame_id (:obj:`str`):  TF frame identifier to subscribe to.
+#             callback (:obj:`callable`): A callable functions receiving one parameter with `transform` data.
+#         """
+
+#         frame_id = self._normalize_frame_id(frame_id)
+#         frame = self.frame_info.get(frame_id, None)
+
+#         # If there is no callback registered for the given frame, create emtpy callback list
+#         if not frame:
+#             frame = dict(cbs=[])
+#             self.frame_info[frame_id] = frame
+
+#             if not self.republisher_update_requested:
+#                 self.ros.call_later(self.update_delay / 1000.0, self.update_goal)
+#                 self.republisher_update_requested = True
+#         else:
+#             # If we already have a transform, call back immediately
+#             if "transform" in frame:
+#                 callback(frame)
+
+#         frame["cbs"].append(callback)
+    
 class MobileRobotClient(object):
     def __init__(self, host='localhost', port=9090):
         """_summary_
@@ -26,7 +52,6 @@ class MobileRobotClient(object):
             port (int, optional): Port of ROS master. Defaults to 9090.
         """
         self.ros_client = RosClient(host=host, port=port)
-        
         self.topics = {}
         self.services = {}
         self.tf_clients = {}
@@ -35,6 +60,7 @@ class MobileRobotClient(object):
         self.cmd_vel = AttrDict(linear=AttrDict(x=0.0, y=0.0, z=0.0),
                                 angular=AttrDict(x=0.0, y=0.0, z=0.0))
         self.tf_frame = None
+        
         self.marker_frames = {}
         self.robot_frame = Frame.worldXY()
         
@@ -304,7 +330,7 @@ if __name__ == "__main__":
     # mb.arm_move_joint(config)
     # mb.set_lift_height(0.0)
     # mb.rotate_in_place()
-    mb.move_backward(vel=0.05, dist=0.2)
+    # mb.move_backward(vel=0.05, dist=0.2)
     # time.sleep(1)
     # mb.move_radial(deg=-90, dist=0.5)
     # frame1 = Frame([0,0,0], [1,0,0], [0,1,0])

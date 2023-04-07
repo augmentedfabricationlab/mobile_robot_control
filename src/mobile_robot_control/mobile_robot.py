@@ -30,6 +30,7 @@ class MobileRobot(Robot):
             'request_id': None,
             'solutions': None
         }
+        self.ur_joint_values = {}
         
         self._lift_height = 0 #lift height
         
