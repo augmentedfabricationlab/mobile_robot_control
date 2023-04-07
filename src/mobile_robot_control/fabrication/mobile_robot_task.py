@@ -90,7 +90,7 @@ class SearchMarkersTask(Task):
         self.robot.mobile_client.topic_unsubscribe('/tf')
         self.log('Got all the visible marker ids.')
         time.sleep(1)
-        self.log("length of list is {}".format(len(self.marker_ids)))
+        self.log("Length of the list is {}".format(len(self.marker_ids)))
         
         # Iterate the marker ids and create elements
         if len(self.marker_ids) > 0:
@@ -106,12 +106,21 @@ class SearchMarkersTask(Task):
 
             # try:
             #    elements_placed = self.assembly.network.nodes_attribute(element_ids, 'is_placed')
-            #    assembly_done = all(elements_placed)
             # except KeyError:
-            #     self.log("keyerror")
-            #     assembly_done = False
-            assembly_done = False
-            self.log("Assembly done {}".format(assembly_done))
+            #     self.log("")
+            elements_placed = []
+            for element_id in element_ids:
+                if self.assembly.network.has_node(element_id):
+                    if self.assembly.network.node_attribute(element_id, 'is_placed'):
+                        elements_placed.append(True)
+                    else:
+                        elements_placed.append(False)
+            # assembly_done = all([self.assembly.network.node_attribute(element_id, 'is_placed') for element_id in element_ids])
+            if len(elements_placed) > 0:
+                assembly_done = all(elements_placed)
+            else:
+                assembly_done = False
+            self.log("Assembly is done:".format(assembly_done))
             
             if not assembly_done:
                 self.log("Choose element task created.")
