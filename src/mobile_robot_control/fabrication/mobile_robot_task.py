@@ -302,7 +302,9 @@ class PickPlaceElementTask(URTask):
         
         frame_2 = Frame(place_frame.point, place_frame.yaxis, -place_frame.zaxis) 
         frame_2_safe = frame_2.transformed(Translation.from_vector(-frame_2.yaxis*0.15) * Translation.from_vector(Vector.Zaxis()*(self.number_of_placed_elements*0.05 + 0.1)))
-        frame_2_safe_high = frame_2_safe.transformed(Translation.from_vector(Vector.Zaxis()*0.2))
+        R = Rotation.from_axis_and_angle(frame_2_safe.xaxis, math.radians(-10), frame_2_safe.point)
+        T = Transformation.concatenated(R, Translation.from_vector(Vector.Zaxis()*0.2))
+        frame_2_safe_high = frame_2_safe.transformed(T)
         
         tool_angle_axis = list(self.robot.attached_tool.frame.point) + list(self.robot.attached_tool.frame.axis_angle_vector)
         
