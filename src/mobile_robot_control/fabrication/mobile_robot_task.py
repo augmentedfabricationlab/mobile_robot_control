@@ -19,7 +19,7 @@ __all__ = [
     "MarkerSnapshotTask",
     "GetElementPoseTask",
     "PickPlaceElementTask",
-    "PlanTrajectoryTask"
+    "MotionPlanTask"
 ]
 
 # class GetJointStates(Task):
@@ -254,31 +254,73 @@ class GetMarkerPoseTask(Task):
         self.is_completed = True
         return True
 
-class PlanTrajectoryTask(Task):
-    def __init__(self, robot, assembly, frames_RCF, element_id=0, recalculate_path=False, key=None):
-        super(PlanTrajectoryTask, self).__init__(key)
+class MotionPlanTask(Task):
+    def __init__(self, robot, frame_RCF, element_id=0, recalculate_path=False, key=None):
+        super(MotionPlanTask, self).__init__(key)
         self.robot = robot
-        self.assembly = assembly
-        self.frames_RCF = frames_RCF
+        #self.assembly = assembly
+        self.frame_RCF = frame_RCF
         self.element_id = element_id
         self.recalculate_path = recalculate_path
-        self.start_configuration = None # put in the GetRobotConfigurationTask() here
         
     def run(self, stop_thread):
-        t0 = time.time()
-        while time.time() - t0 < 10 and not stop_thread(): 
-            time.sleep(0.1)
-            trajectory = self.robot.plan_cartesian_motion(self.frames_RCF)
-            self.log("This is ")
-            self.log(trajectory)
-            configurations = trajectory.points
-            full_configurations = [self.robot.merge_group_with_full_configuration(c, trajectory.start_configuration, self.robot.main_group_name) for c in configurations]
-            frames = [self.robot.forward_kinematics(c, self.robot.main_group_name, options=dict(solver='model')) for c in full_configurations]
-            if self.robot.attached_tool:
-                frames = [self.robot.from_t0cf_to_tcf([frame])[0] for frame in frames]
-            planes = [draw_frame(frame) for frame in frames]
-            self.log(planes)
-            self.assembly.network.node_attribute(self.element_id, 'planes', planes)
+        # t0 = time.time()
+        # while time.time() - t0 < 10 and not stop_thread(): 
+        time.sleep(0.1)
+        
+        group = self.robot.main_group_name 
+
+        tolerance_position = tolerance_position or 0.001
+        tolerance_xaxis = tolerance_xaxis or 1.
+        tolerance_yaxis = tolerance_yaxis or 1.
+        tolerance_zaxis = tolerance_zaxis or 1.
+
+        tolerances_axes = [math.radians(tolerance_xaxis), math.radians(tolerance_yaxis), math.radians(tolerance_zaxis)]
+        
+        goal_constraints = self.robot.constraints_from_frame(self.frame_RCF, tolerance_position, tolerances_axes, group)
+        # path_constraints = list(path_constraints) if path_constraints else None
+        # attached_collision_meshes = list(attached_collision_meshes) if attached_collision_meshes else None
+        # planner_id = str(planner_id) if planner_id else 'RRTConnect'
+        path_constraints = None
+        attached_collision_meshes = None
+        planner_id = 'RRTConnect'
+        start_configuration = self.robot.zero_configuration(group)
+        self.log('Will find trajectory')
+        trajectory = self.robot.plan_motion(goal_constraints,
+                                    start_configuration=start_configuration,
+                                    group=group,
+                                    options=dict(
+                                        attached_collision_meshes=attached_collision_meshes,
+                                        path_constraints=path_constraints,
+                                        planner_id=planner_id,
+                                    ))
+        
+        self.log(trajectory)
+        configurations = []
+        fraction = 0.
+        time = 0.
+
+        planes = []
+        positions = []
+        velocities = []
+        accelerations = []
+
+        for c in trajectory.points:
+            configurations.append(self.robot.merge_group_with_full_configuration(c, trajectory.start_configuration, group))
+            frame = self.robot.forward_kinematics(c, group, options=dict(solver='model'))
+            planes.append(draw_frame(frame))
+            positions.append(c.positions)
+            velocities.append(c.velocities)
+            accelerations.append(c.accelerations)
+
+        start_configuration = trajectory.start_configuration
+        fraction = trajectory.fraction
+        time = trajectory.time_from_start
+            
+            # if self.robot.attached_tool:
+            #     frames = [self.robot.from_t0cf_to_tcf([frame])[0] for frame in frames]
+
+            # self.assembly.network.node_attribute(self.element_id, 'planes', planes)
 
         self.is_completed = True
         return True
