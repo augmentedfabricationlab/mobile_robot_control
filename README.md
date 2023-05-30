@@ -1,4 +1,4 @@
-# Mobile Fabrication Control
+# Mobile Robot Control
 
 [![Github - License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/augmentedfabricationlab/mobile_robot_control)
 [![PyPI - Latest Release](https://travis-ci.org/augmentedfabricationlab/mobile_robot_control.svg?branch=master)](https://github.com/augmentedfabricationlab/mobile_robot_control)
