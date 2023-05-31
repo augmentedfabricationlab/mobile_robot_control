@@ -36,13 +36,12 @@ class MobileRobot(Robot):
         
         self._WCF = Frame.worldXY() #world coordinate frame (WCF)
         self._BCF = Frame.worldXY() #base coordinate frame in WCF (BCF)
-        self._RCF = None #frame of ur robot arm in BCF (RCF)
+        self._RCF = None #ur robot arm coordinate frame in BCF (RCF)
         
         self._RWCF = Frame.worldXY() #reference world coordinate frame (RWCF) 
         self._RBCF = Frame.worldXY() #base coordinate frame in RWCF (RBCF)
-        self._RRCF = None #robot coordinate frame in RBCF (RRCF)
+        self._RRCF = None #ur robot arm coordinate frame in RBCF (RRCF)
         
-        self._MCF = Frame.worldXY() #frame of marker in WCF (MCF)
         self._PCF = Frame.worldXY() #frame for element pick-up on mobile robot's base in RCF (PCF)
     
     @property
@@ -60,14 +59,6 @@ class MobileRobot(Robot):
     @PCF.setter
     def PCF(self, PCF):
         self._PCF = PCF
-        
-    @property
-    def MCF(self):
-        return self._MCF
-    
-    @MCF.setter
-    def MCF(self, MCF):
-        self._MCF = MCF
         
     @property
     def BCF(self):
