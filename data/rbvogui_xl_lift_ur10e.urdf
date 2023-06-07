@@ -62,7 +62,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/bases/rbvogui_xl_chassis.stl"/>
+        <mesh filename="package://rbvogui_description/rbvogui_xl_chassis.stl"/>
       </geometry>
       <material name="darkgrey">
         <color rgba="0.1 0.1 0.1 1"/>
@@ -71,7 +71,7 @@
     <collision>
       <origin rpy="0 0 0 " xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/bases/rbvogui_xl_chassis.stl"/>
+        <mesh filename="package://rbvogui_description/rbvogui_xl_chassis.stl"/>
       </geometry>
     </collision>
   </link>
@@ -91,7 +91,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/bases/rbvogui_xl_battery.stl"/>
+        <mesh filename="package://rbvogui_description/rbvogui_xl_battery.stl"/>
       </geometry>
       <material name="darkgrey">
         <color rgba="0.1 0.1 0.1 1"/>
@@ -100,7 +100,7 @@
     <collision>
       <origin rpy="0 0 0 " xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/bases/rbvogui_xl_battery.stl"/>
+        <mesh filename="package://rbvogui_description/rbvogui_xl_battery.stl"/>
       </geometry>
     </collision>
   </link>
@@ -115,7 +115,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/bases/rbvogui_contactors.stl"/>
+        <mesh filename="package://rbvogui_description/rbvogui_contactors.stl"/>
       </geometry>
       <material name="lighbrown">
         <color rgba="0.7 0.3 0.0 1"/>
@@ -133,7 +133,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 -0.06"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/bases/rbvogui_logos.stl" scale="1.24 1.24 1"/>
+        <mesh filename="package://rbvogui_description/rbvogui_logos.stl" scale="1.24 1.24 1"/>
       </geometry>
       <material name="lightred">
         <color rgba="0.9 0.2 0.2 1"/>
@@ -149,7 +149,7 @@
     <visual>
       <origin rpy="0 0 0.0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/bases/rbvogui_xl_leds.stl"/>
+        <mesh filename="package://rbvogui_description/rbvogui_xl_leds.stl"/>
       </geometry>
       <material name="lightgreen">
         <color rgba="0.1 1.0 0.1 1"/>
@@ -240,7 +240,7 @@
     <visual>
       <origin rpy="0 0 3.14159265359" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/hub_rbvogui_xl.stl"/>
+        <mesh filename="package://rbvogui_description/hub_rbvogui_xl.stl"/>
       </geometry>
       <material name="red">
         <color rgba="0.9 0.1 0.1 1"/>
@@ -249,7 +249,7 @@
     <collision>
       <origin rpy="0 0 3.14159265359" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/hub_rbvogui_xl.stl"/>
+        <mesh filename="package://rbvogui_description/hub_rbvogui_xl.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -281,7 +281,7 @@
     <visual>
       <origin rpy="0 0 3.14159265359" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/wheel_350mm.stl"/>
+        <mesh filename="package://rbvogui_description/wheel_350mm.stl"/>
       </geometry>
       <material name="black_wheel">
         <color rgba="0.1 0.1 0.1 1"/>
@@ -290,7 +290,7 @@
     <collision>
       <origin rpy="3.14159265359 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/wheel_350mm.stl"/>
+        <mesh filename="package://rbvogui_description/wheel_350mm.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -347,7 +347,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/hub_rbvogui_xl.stl"/>
+        <mesh filename="package://rbvogui_description/hub_rbvogui_xl.stl"/>
       </geometry>
       <material name="red">
         <color rgba="0.9 0.1 0.1 1"/>
@@ -356,7 +356,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/hub_rbvogui_xl.stl"/>
+        <mesh filename="package://rbvogui_description/hub_rbvogui_xl.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -388,7 +388,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/wheel_350mm.stl"/>
+        <mesh filename="package://rbvogui_description/wheel_350mm.stl"/>
       </geometry>
       <material name="black_wheel">
         <color rgba="0.1 0.1 0.1 1"/>
@@ -397,7 +397,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/wheel_350mm.stl"/>
+        <mesh filename="package://rbvogui_description/wheel_350mm.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -454,7 +454,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/hub_rbvogui_xl.stl"/>
+        <mesh filename="package://rbvogui_description/hub_rbvogui_xl.stl"/>
       </geometry>
       <material name="red">
         <color rgba="0.9 0.1 0.1 1"/>
@@ -463,7 +463,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/hub_rbvogui_xl.stl"/>
+        <mesh filename="package://rbvogui_description/hub_rbvogui_xl.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -495,7 +495,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/wheel_350mm.stl"/>
+        <mesh filename="package://rbvogui_description/wheel_350mm.stl"/>
       </geometry>
       <material name="black_wheel">
         <color rgba="0.1 0.1 0.1 1"/>
@@ -504,7 +504,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/wheel_350mm.stl"/>
+        <mesh filename="package://rbvogui_description/wheel_350mm.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -561,7 +561,7 @@
     <visual>
       <origin rpy="0 0 3.14159265359" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/hub_rbvogui_xl.stl"/>
+        <mesh filename="package://rbvogui_description/hub_rbvogui_xl.stl"/>
       </geometry>
       <material name="red">
         <color rgba="0.9 0.1 0.1 1"/>
@@ -570,7 +570,7 @@
     <collision>
       <origin rpy="0 0 3.14159265359" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/hub_rbvogui_xl.stl"/>
+        <mesh filename="package://rbvogui_description/hub_rbvogui_xl.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -602,7 +602,7 @@
     <visual>
       <origin rpy="0 0 3.14159265359" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/wheel_350mm.stl"/>
+        <mesh filename="package://rbvogui_description/wheel_350mm.stl"/>
       </geometry>
       <material name="black_wheel">
         <color rgba="0.1 0.1 0.1 1"/>
@@ -611,7 +611,7 @@
     <collision>
       <origin rpy="3.14159265359 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://rbvogui_description/meshes/wheels/wheel_350mm.stl"/>
+        <mesh filename="package://rbvogui_description/wheel_350mm.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -649,7 +649,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 -0.0526"/>
       <geometry>
-        <mesh filename="package://ewellix_description/meshes/ewellix_lift_base_700mm.stl"/>
+        <mesh filename="package://ewellix_description/ewellix_lift_base_700mm.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.7 0.7 0.7 1"/>
@@ -658,7 +658,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="-0.005 0 0.00235"/>
       <geometry>
-        <mesh filename="package://ewellix_description/meshes/ewellix_lift_base_700mm.stl"/>
+        <mesh filename="package://ewellix_description/ewellix_lift_base_700mm.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -678,7 +678,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0.015"/>
       <geometry>
-        <mesh filename="package://ewellix_description/meshes/ewellix_lift_top_700mm.stl"/>
+        <mesh filename="package://ewellix_description/ewellix_lift_top_700mm.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.7 0.7 0.7 1"/>
@@ -687,7 +687,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="-0.005 0 0.00235"/>
       <geometry>
-        <mesh filename="package://ewellix_description/meshes/ewellix_lift_top_700mm.stl"/>
+        <mesh filename="package://ewellix_description/ewellix_lift_top_700mm.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -1101,7 +1101,7 @@
         <color rgba="1 0 0 1"/>
       </material>
       <geometry>
-        <mesh filename="package://robotnik_sensors/meshes/vectornav_vn100.stl"/>
+        <mesh filename="package://robotnik_sensors/vectornav_vn100.stl"/>
       </geometry>
     </visual>
     <collision>
@@ -1153,12 +1153,12 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robotnik_sensors/meshes/orbbec_astra.stl"/>
+        <mesh filename="package://robotnik_sensors/orbbec_astra.stl"/>
       </geometry>
     </visual>
     <collision>
       <geometry>
-        <mesh filename="package://robotnik_sensors/meshes/orbbec_astra.stl"/>
+        <mesh filename="package://robotnik_sensors/orbbec_astra.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -1266,7 +1266,7 @@
       <!-- origin xyz="0 0 0" rpy="0 0 1.5708"/ -->
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robotnik_sensors/meshes/rs_bpearl.stl"/>
+        <mesh filename="package://robotnik_sensors/rs_bpearl.stl"/>
       </geometry>
       <material name="blackgray_color">
         <color rgba="0.25 0.25 0.25 1"/>
@@ -1275,7 +1275,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robotnik_sensors/meshes/rs_bpearl.stl"/>
+        <mesh filename="package://robotnik_sensors/rs_bpearl.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -1364,13 +1364,13 @@
         <color rgba="0.5 0.5 0.5 1"/>
       </material>
       <geometry>
-        <mesh filename="package://robotnik_sensors/meshes/antenna_ANN_MB_mast.stl" scale="1.0 1.0 1.0"/>
+        <mesh filename="package://robotnik_sensors/antenna_ANN_MB_mast.stl" scale="1.0 1.0 1.0"/>
       </geometry>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robotnik_sensors/meshes/antenna_ANN_MB_mast.stl" scale="1.0 1.0 1.0"/>
+        <mesh filename="package://robotnik_sensors/antenna_ANN_MB_mast.stl" scale="1.0 1.0 1.0"/>
       </geometry>
     </collision>
   </link>
