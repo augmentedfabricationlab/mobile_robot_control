@@ -44,14 +44,14 @@ class AttrDict(dict):
 #         frame["cbs"].append(callback)
     
 class MobileRobotClient(object):
-    def __init__(self, host='localhost', port=9090):
+    def __init__(self, ros_client=None):
         """_summary_
 
         Args:
             host (str, optional): IP address of ROS master. Defaults to 'localhost'.
             port (int, optional): Port of ROS master. Defaults to 9090.
         """
-        self.ros_client = RosClient(host=host, port=port)
+        self.ros_client = ros_client
         self.topics = {}
         self.services = {}
         self.tf_clients = {}
@@ -265,12 +265,12 @@ class MobileRobotClient(object):
         joint_state_publisher.unadvertise()
 
     def set_lift_height(self, height):
-        lift_topic = self.topic_publish("/robot/lift_joint_position_controller/command",
-                                          "std_msgs/Float64")
+        self.topic_publish("/robot/lift_joint_position_controller/command", "std_msgs/Float64")
+        self.get_topic("/robot/lift_joint_position_controller/command").publish(Message({"data": height}))
         t0 = time.time()
-        while time.time()-t0 < 2:
-            lift_topic.publish({"data": height})
-        lift_topic.unadvertise()
+        while time.time()-t0 < 5:
+            time.sleep(0.1)
+        self.topic_unpublish("/robot/lift_joint_position_controller/command")
 
     def rotate_in_place(self, rad=(math.pi/2), vel=0.01):
         move_base = self.topic_publish("/robot/cmd_vel", "geometry_msgs/Twist")
