@@ -77,7 +77,9 @@ class MotionPlanTask(Task):
         
         self.path_constraints = path_constraints
         self.attached_collision_meshes = attached_collision_meshes 
-        self.planner_id = planner_id 
+        self.planner_id = planner_id
+        
+        self.results = {"configurations" : [], "planes" : [], "positions" : [], "velocities" : [], "accelerations" : []}
         
     def run(self, stop_thread):
         tolerances_axes = [math.radians(self.tolerance_xaxis), math.radians(self.tolerance_yaxis), math.radians(self.tolerance_zaxis)]
@@ -98,22 +100,16 @@ class MotionPlanTask(Task):
             if trajectory is not None:
                 break
             time.sleep(0.1)
-            
-        configurations = []
-        planes = []
-        positions = []
-        velocities = []
-        accelerations = []
 
         for c in trajectory.points:
-            configurations.append(self.robot.merge_group_with_full_configuration(c, trajectory.start_configuration, self.group))
+            self.results["configurations"].append(self.robot.merge_group_with_full_configuration(c, trajectory.start_configuration, self.group))
             frame = self.robot.forward_kinematics(c, self.group, options=dict(solver='model'))
-            planes.append(draw_frame(frame.transformed(self.robot.transformation_BCF_WCF())))
-            positions.append(c.positions)
-            velocities.append(c.velocities)
-            accelerations.append(c.accelerations)
+            self.results["planes"].append(draw_frame(frame.transformed(self.robot.transformation_BCF_WCF())))
+            self.results["positions"].append(c.positions)
+            self.results["velocities"].append(c.velocities)
+            self.results["accelerations"].append(c.accelerations)
 
-        self.log(planes)
+        self.log(self.results["planes"])
         self.is_completed = True
         
         return True
