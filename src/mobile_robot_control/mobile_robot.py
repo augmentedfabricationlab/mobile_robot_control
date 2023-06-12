@@ -24,7 +24,7 @@ class MobileRobot(Robot):
         self.semantics = semantics
         self.client = client
         self.mobile_client = mobile_client
-        self.wheel_type = "indoor"
+        self.wheel_type = "outdoor"
         self.attributes = {}
         self._current_ik = {
             'request_id': None,
@@ -186,4 +186,3 @@ class MobileRobot(Robot):
         """
         frame_WCF = frame_BCF.transformed(self.transformation_BCF_WCF())
         return frame_WCF
-    
