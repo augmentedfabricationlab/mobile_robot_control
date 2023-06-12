@@ -101,6 +101,34 @@ class MobileRobot(Robot):
         """
         return Transformation.from_change_of_basis(Frame.worldXY(), self.BCF)
 
+    def transformation_RCF_BCF(self):
+        """Get the transformation from the robot arm frame (RCF) to the base coordinate frame (BCF).
+        -------
+        :class:`compas.geometry.Transformation`
+        """
+        return Transformation.from_frame(self.RCF)
+    
+    def transformation_BCF_RCF(self):
+        """Get the transformation from the base coordinate frame (BCF) to the robot arm frame (RCF).
+        -------
+        :class:`compas.geometry.Transformation`
+        """
+        return Transformation.from_frame(self.RCF).inverted()
+    
+    def transformation_RCF_WCF(self):
+        """Get the transformation from the robot arm coordinate frame (RCF) to the world coordinate frame (WCF).
+        -------
+        :class:`compas.geometry.Transformation`
+        """
+        return Transformation.concatenated(self.transformation_BCF_WCF(), self.transformation_RCF_BCF())
+    
+    def transformation_WCF_RCF(self):
+        """Get the transformation from the world coordinate frame (WCF) to the robot arm coordinate frame (RCF).
+        -------
+        :class:`compas.geometry.Transformation`
+        """
+        return Transformation.concatenated(self.transformation_BCF_RCF(), self.transformation_WCF_BCF())
+    
     def transformation_RBCF_WCF(self):
         """Get the transformation from the reference base coordinate frame (RBCF) to the world coordinate frame (WCF).
         -------
@@ -130,20 +158,6 @@ class MobileRobot(Robot):
         :class:`compas.geometry.Transformation`
         """
         return Transformation.from_change_of_basis(Frame.worldXY(), self.RWCF)
-    
-    def transformation_RCF_BCF(self):
-        """Get the transformation from the robot arm frame (RCF) to the base coordinate frame (BCF).
-        -------
-        :class:`compas.geometry.Transformation`
-        """
-        return Transformation.from_frame(self.RCF)
-    
-    def transformation_BCF_RCF(self):
-        """Get the transformation from the base coordinate frame (BCF) to the robot arm frame (RCF).
-        -------
-        :class:`compas.geometry.Transformation`
-        """
-        return Transformation.from_frame(self.RCF).inverted()
 
     def to_local_coordinates(self, frame_WCF):
         """Represent a frame from the world coordinate system (WCF) in the robot base coordinate system (BCF).
