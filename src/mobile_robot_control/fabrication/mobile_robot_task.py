@@ -3,6 +3,7 @@ from ur_fabrication_control.direct_control.fabrication_process import URTask
 from ur_fabrication_control.direct_control.mixins import URScript_AreaGrip
 from compas_ghpython import draw_frame
 from compas_rhino.conversions import xform_to_rhino
+from compas_fab.robots import Configuration
 
 import time
 import math
@@ -79,15 +80,22 @@ class MotionPlanTask(Task):
         self.attached_collision_meshes = attached_collision_meshes 
         self.planner_id = planner_id
         
+        self.trajectory = None
         self.results = {"configurations" : [], "planes" : [], "positions" : [], "velocities" : [], "accelerations" : []}
         
     def run(self, stop_thread):
         tolerances_axes = [math.radians(self.tolerance_xaxis), math.radians(self.tolerance_yaxis), math.radians(self.tolerance_zaxis)]
         frame_BCF = self.frame_WCF.transformed(self.robot.transformation_WCF_BCF())
-        goal_constraints = self.robot.constraints_from_frame(frame_BCF, self.tolerance_position, tolerances_axes, self.group)
+
+        if self.robot.attached_tool:
+            tool0_BCF = self.robot.from_tcf_to_t0cf([frame_BCF])[0]
+        else:
+            tool0_BCF = frame_BCF
+            
+        goal_constraints = self.robot.constraints_from_frame(tool0_BCF, self.tolerance_position, tolerances_axes, self.group)
         
-        trajectory = None
-        trajectory = self.robot.plan_motion(goal_constraints,
+        self.log("Planning trajectory...")
+        self.trajectory = self.robot.plan_motion(goal_constraints,
                                     start_configuration=self.start_configuration,
                                     group=self.group,
                                     options=dict(
@@ -95,23 +103,29 @@ class MotionPlanTask(Task):
                                         path_constraints=self.path_constraints,
                                         planner_id=self.planner_id,
                                     ))
-
-        while not stop_thread(): 
-            if trajectory is not None:
+        
+        while not stop_thread():
+            if self.trajectory is not None:
                 break
             time.sleep(0.1)
-
-        for c in trajectory.points:
-            self.results["configurations"].append(self.robot.merge_group_with_full_configuration(c, trajectory.start_configuration, self.group))
-            frame = self.robot.forward_kinematics(c, self.group, options=dict(solver='model'))
-            self.results["planes"].append(draw_frame(frame.transformed(self.robot.transformation_BCF_WCF())))
+        
+        self.log('Trajectory found at {}.'.format(self.trajectory))
+        
+        for c in self.trajectory.points:
+            config = self.robot.merge_group_with_full_configuration(c, self.trajectory.start_configuration, self.group)
+            joint_names_ordered = ['robot_ewellix_lift_top_joint', 'robot_arm_shoulder_pan_joint', 'robot_arm_shoulder_lift_joint', 'robot_arm_elbow_joint', 'robot_arm_wrist_1_joint', 'robot_arm_wrist_2_joint', 'robot_arm_wrist_3_joint']
+            joint_values_ordered = [config.joint_values[config.joint_names.index(joint_name)] for joint_name in joint_names_ordered]
+            joint_types_ordered = [config.joint_types[config.joint_names.index(joint_name)] for joint_name in joint_names_ordered]
+            mobile_robot_config = Configuration(joint_values_ordered, joint_types_ordered, joint_names_ordered)
+            self.results["configurations"].append(mobile_robot_config)
+    
+            frame_t = self.robot.forward_kinematics(c, self.group, options=dict(solver='model'))
+            self.results["planes"].append(draw_frame(frame_t.transformed(self.robot.transformation_BCF_WCF())))
             self.results["positions"].append(c.positions)
             self.results["velocities"].append(c.velocities)
             self.results["accelerations"].append(c.accelerations)
-
-        self.log(self.results["planes"])
-        self.is_completed = True
         
+        self.is_completed = True
         return True
  
 class MoveJointsTask(URTask):
