@@ -4,6 +4,7 @@ from compas.geometry import Frame, Point, Quaternion, Vector, Transformation
 from compas_fab.backends import RosClient
 from compas_fab.backends.ros.messages import JointTrajectory, JointTrajectoryPoint, Header
 from compas_fab.robots.time_ import Duration
+from compas_fab.robots import Configuration
 from roslibpy import Message, Topic, Service, tf
 from roslibpy.core import ServiceRequest
 
@@ -16,32 +17,6 @@ class AttrDict(dict):
     def __init__(self, *args, **kwargs):
         super(AttrDict, self).__init__(*args, **kwargs)
         self.__dict__ = self
-
-# class TFClient2(tf.TFClient):
-#     def subscribe(self, frame_id, callback):
-#         """Subscribe to the given TF frame.
-#         Args:
-#             frame_id (:obj:`str`):  TF frame identifier to subscribe to.
-#             callback (:obj:`callable`): A callable functions receiving one parameter with `transform` data.
-#         """
-
-#         frame_id = self._normalize_frame_id(frame_id)
-#         frame = self.frame_info.get(frame_id, None)
-
-#         # If there is no callback registered for the given frame, create emtpy callback list
-#         if not frame:
-#             frame = dict(cbs=[])
-#             self.frame_info[frame_id] = frame
-
-#             if not self.republisher_update_requested:
-#                 self.ros.call_later(self.update_delay / 1000.0, self.update_goal)
-#                 self.republisher_update_requested = True
-#         else:
-#             # If we already have a transform, call back immediately
-#             if "transform" in frame:
-#                 callback(frame)
-
-#         frame["cbs"].append(callback)
     
 class MobileRobotClient(object):
     def __init__(self, ros_client=None):
@@ -63,6 +38,8 @@ class MobileRobotClient(object):
         
         self.marker_frames = {}
         self.robot_frame = Frame.worldXY()
+        
+        self.current_joint_values = {}
         
     def connect(self):
         """_summary_
@@ -90,11 +67,6 @@ class MobileRobotClient(object):
         tf_client.subscribe(target_frame, self._receive_tf_frame_callback)
         
     def _receive_tf_frame_callback(self, message):
-        """_summary_
-
-        Args:
-            message (_type_): _description_
-        """
         pose_point = Point(message['translation']['x'], message['translation']['y'], message['translation']['z'])
         pose_quaternion = Quaternion(message['rotation']['w'], message['rotation']['x'], message['rotation']['y'], message['rotation']['z'])
         pose_frame = Frame.from_quaternion(pose_quaternion, pose_point)
@@ -107,8 +79,8 @@ class MobileRobotClient(object):
         """_summary_
 
         Args:
-            target_frame (_type_): _description_
-            reference_frame (_type_): _description_
+            target_frame (str): Name of target frame. e.g. 'marker_0'
+            reference_frame (str): Name of reference frame. e.g. 'base'
         """
         if self.tf_clients.get(reference_frame):
             tf_client = self.tf_clients.get(reference_frame)
@@ -117,8 +89,55 @@ class MobileRobotClient(object):
             except TypeError:
                 pass
         
-    def action_subscribe(self, server_name, action_name, timeout=None):
-        pass
+    def service_provide(self, service_name, service_type, handler=None):
+        """_summary_
+
+        Args:
+            service_name (str): Service name. e.g. '/set_ludicrous_speed'
+            service_type (str): Sevice type. e.g. 'std_srvs/SetBool'
+            handler (func, optional): Callback invoked on every service call. It should accept two parameters: service_request and service_response. It should return True if executed correctly, otherwise False. Defaults to None. 
+            e.g. def handler(request, response):
+                    print('Setting speed to {}'.format(request['data']))
+                    response['success'] = True
+                    return True
+        """
+        if service_name not in self.services.keys():
+            self.set_service(service_name, service_type)
+        if not self.get_service(service_name).is_advertised:
+            self.get_service(service_name).advertise(handler)
+            
+    def service_unprovide(self, service_name):
+        if service_name in self.services.keys():
+            if self.get_service(service_name).is_advertised:
+                self.get_service(service_name).unadvertise()
+            self.remove_service(service_name)
+            
+    def service_call(self, service_name, service_type, request_dict):
+        """_summary_
+
+        Args:
+            service_name (str): Service name. e.g. '/set_ludicrous_speed'
+            service_type (str): Sevice type. e.g. 'std_srvs/SetBool'
+            request_dict (dict): Dictionary for the request. e.g. {'data': True}
+
+        Returns:
+            result (dict): Service response.
+        """
+        if service_name not in self.services.keys():
+            self.set_service(service_name, service_type)
+        request = ServiceRequest(request_dict)
+        result = self.get_service(service_name).call(request)
+        return result
+            
+    def get_service(self, service_name):
+        return self.services[service_name]
+    
+    def set_service(self, service_name, service_type):
+        self.services[service_name] = Service(self.ros_client, service_name, service_type)
+        return self.services[service_name]
+    
+    def remove_service(self, service_name):
+        self.services.pop(service_name)
 
     def topic_subscribe(self, topic_name, msg_type=None, callback=None):
         if topic_name not in self.topics.keys():
@@ -132,11 +151,12 @@ class MobileRobotClient(object):
                 self.topics[topic_name].unsubscribe()
             self.remove_topic(topic_name)
 
-    def topic_publish(self, topic_name, msg_type=None):
+    def topic_publish(self, topic_name, msg_type=None, msg_dict=None):
         if topic_name not in self.topics.keys():
             self.set_topic(topic_name, msg_type)
         if not self.topics[topic_name].is_advertised:
-            self.topics[topic_name].advertise()
+            msg = Message(msg_dict)
+            self.topics[topic_name].publish(msg)
             
     def topic_unpublish(self, topic_name):
         if topic_name in self.topics.keys():
@@ -181,13 +201,21 @@ class MobileRobotClient(object):
         self.cmd_vel.angular.y = 0.0
         self.cmd_vel.angular.z = 0.0
 
-    def echo_joint_states(self):
-        # jst = self.topic_subscriber(name="/robot/arm/scaled_pos_traj_controller/state",
-        #                       msg="control_msgs/JointTrajectoryControllerState",
-        #                       callback=lambda message: print(message['data']))
-        # time.sleep(2)
-        # jst.unsubscribe()
-        pass
+    def _receive_joint_states(self, message):
+        for key, joint_name in enumerate(message.get('name')):
+            self.current_joint_values[joint_name] = message.get('position')[key]
+        
+    def joint_states_subscribe(self):
+        self.topic_subscribe('/robot/joint_states', 'sensor_msgs/JointState', self._receive_joint_states)
+    
+    def joint_states_unsubscribe(self):
+        self.topic_unsubscribe('/robot/joint_states')
+        
+    def get_current_ur10e_and_liftkit_config(self):
+        joint_names_ordered = ['robot_ewellix_lift_top_joint', 'robot_arm_shoulder_pan_joint', 'robot_arm_shoulder_lift_joint', 'robot_arm_elbow_joint', 'robot_arm_wrist_1_joint', 'robot_arm_wrist_2_joint', 'robot_arm_wrist_3_joint']
+        joint_values_ordered = [self.current_joint_values.get(joint_name, 0.0) for joint_name in joint_names_ordered]
+        joint_types_ordered = [2, 0, 0, 0, 0, 0, 0]
+        return Configuration(joint_values_ordered, joint_types_ordered, joint_names_ordered)
 
     def echo_robot_odom(self):
         pass
