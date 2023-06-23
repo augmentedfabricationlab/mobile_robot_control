@@ -2,14 +2,12 @@ from fabrication_manager.task import Task
 from ur_fabrication_control.direct_control.fabrication_process import URTask
 from ur_fabrication_control.direct_control.mixins import URScript_AreaGrip
 from compas_ghpython import draw_frame
-from compas_rhino.conversions import xform_to_rhino
 from compas_fab.robots import Configuration
 
 import time
 import math
 
 __all__ = [
-    "FakeTask",
     "MoveJointsTask",
     "MotionPlanTask"
 ]
@@ -50,20 +48,10 @@ __all__ = [
 #         self.assembly_done = True
 #         self.is_completed = True
 #         return True
-
-class FakeTask(Task):
-    def __init__(self, robot, key=None):
-        super(FakeTask, self).__init__(key)
-        self.robot = robot
-        
-    def run(self, stop_thread):
-        self.log("Fake task text.")
-        self.is_completed = True
-        
-        return True
     
 class MotionPlanTask(Task):
-    def __init__(self, robot, frame_WCF, start_configuration, group, tolerance_position=0.001, tolerance_xaxis=1.0, tolerance_yaxis=1.0, tolerance_zaxis=1.0, attached_collision_meshes=None, path_constraints=None, planner_id='RRTConnect', recalculate_path=False, key=None):
+    def __init__(self, robot, frame_WCF, start_configuration, group, tolerance_position=0.001, tolerance_xaxis=1.0, tolerance_yaxis=1.0, 
+                 tolerance_zaxis=1.0, attached_collision_meshes=None, path_constraints=None, planner_id='RRTConnect', recalculate_path=False, key=None):
         super(MotionPlanTask, self).__init__(key)
         self.robot = robot
         self.group = group
