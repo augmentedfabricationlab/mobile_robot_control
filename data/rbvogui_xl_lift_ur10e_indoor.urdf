@@ -1157,7 +1157,7 @@
         <color rgba="1 0 0 1"/>
       </material>
       <geometry>
-        <mesh filename="package://robotnik_sensors/meshes/vectornav_vn100.stl"/>
+        <mesh filename="package://robotnik_sensors/vectornav_vn100.stl"/>
       </geometry>
     </visual>
     <collision>
@@ -1209,12 +1209,12 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robotnik_sensors/meshes/orbbec_astra.stl"/>
+        <mesh filename="package://robotnik_sensors/orbbec_astra.stl"/>
       </geometry>
     </visual>
     <collision>
       <geometry>
-        <mesh filename="package://robotnik_sensors/meshes/orbbec_astra.stl"/>
+        <mesh filename="package://robotnik_sensors/orbbec_astra.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -1322,7 +1322,7 @@
       <!-- origin xyz="0 0 0" rpy="0 0 1.5708"/ -->
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robotnik_sensors/meshes/rs_bpearl.stl"/>
+        <mesh filename="package://robotnik_sensors/rs_bpearl.stl"/>
       </geometry>
       <material name="blackgray_color">
         <color rgba="0.25 0.25 0.25 1"/>
@@ -1331,7 +1331,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robotnik_sensors/meshes/rs_bpearl.stl"/>
+        <mesh filename="package://robotnik_sensors/rs_bpearl.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -1420,13 +1420,13 @@
         <color rgba="0.5 0.5 0.5 1"/>
       </material>
       <geometry>
-        <mesh filename="package://robotnik_sensors/meshes/antenna_ANN_MB_mast.stl" scale="1.0 1.0 1.0"/>
+        <mesh filename="package://robotnik_sensors/antenna_ANN_MB_mast.stl" scale="1.0 1.0 1.0"/>
       </geometry>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robotnik_sensors/meshes/antenna_ANN_MB_mast.stl" scale="1.0 1.0 1.0"/>
+        <mesh filename="package://robotnik_sensors/antenna_ANN_MB_mast.stl" scale="1.0 1.0 1.0"/>
       </geometry>
     </collision>
   </link>
