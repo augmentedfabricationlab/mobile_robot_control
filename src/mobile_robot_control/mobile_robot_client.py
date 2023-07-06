@@ -90,7 +90,9 @@ class MobileRobotClient(object):
                 pass
         
     def service_provide(self, service_name, service_type, handler=None):
-        """_summary_
+        """Start advertising the service. 
+        This turns the instance from a client into a server. The callback will be invoked with every request that is made to the service.
+        If the service is already advertised, this call does nothing.
 
         Args:
             service_name (str): Service name. e.g. '/set_ludicrous_speed'
@@ -113,24 +115,25 @@ class MobileRobotClient(object):
             self.remove_service(service_name)
             
     def service_call(self, service_name, service_type, request_dict):
-        """_summary_
+        """Start a service call.
 
         Args:
             service_name (str): Service name. e.g. '/set_ludicrous_speed'
             service_type (str): Sevice type. e.g. 'std_srvs/SetBool'
-            request_dict (dict): Dictionary for the request. e.g. {'data': True}
+            request_dict (dict): Answer to te request as a dictionary. e.g. {'data': True}
 
         Returns:
             result (dict): Service response.
         """
         if service_name not in self.services.keys():
             self.set_service(service_name, service_type)
+        service = self.get_service(service_name)
         request = ServiceRequest(request_dict)
-        result = self.get_service(service_name).call(request)
+        result = service.call(request)
         return result
             
     def get_service(self, service_name):
-        return self.services[service_name]
+        return self.services.get(service_name)
     
     def set_service(self, service_name, service_type):
         self.services[service_name] = Service(self.ros_client, service_name, service_type)
@@ -138,7 +141,14 @@ class MobileRobotClient(object):
     
     def remove_service(self, service_name):
         self.services.pop(service_name)
-
+        
+    def is_service_available(self, service_name):
+        all_services = self.ros_client.get_services()
+        if service_name in all_services:
+            return True
+        else:
+            return False
+            
     def topic_subscribe(self, topic_name, msg_type=None, callback=None):
         if topic_name not in self.topics.keys():
             self.set_topic(topic_name, msg_type)
