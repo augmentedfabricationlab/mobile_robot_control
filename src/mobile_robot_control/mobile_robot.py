@@ -10,7 +10,7 @@ __all__ = [
 class MobileRobot(Robot):
     """Represents a robot, which can be moved in the world coordinate system.
     """
-    def __init__(self, model, artist=None, semantics=None, client=None, mobile_client=None):
+    def __init__(self, model, artist=None, semantics=None, client=None, mobile_client=None, **kwargs):
         super(MobileRobot, self).__init__(model, artist, semantics, client)
         
         """
@@ -24,7 +24,7 @@ class MobileRobot(Robot):
         self.semantics = semantics
         self.client = client
         self.mobile_client = mobile_client
-        self.wheel_type = "outdoor"
+        self.wheel_type = kwargs.get("wheel_type") if kwargs.get("wheel_type") else "outdoor"
         self.attributes = {}
         self._current_ik = {
             'request_id': None,
