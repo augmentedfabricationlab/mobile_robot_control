@@ -160,14 +160,14 @@ class MoveLinearTask(URTask):
         super(MoveLinearTask, self).run(stop_thread)
 
 class SearchAndSaveMarkersTask(Task):
-    def __init__(self, robot, robot_address, fabrication, duration=10, initial_search=True, excluded_marker_id=None, key=None):
+    def __init__(self, robot, robot_address, fabrication, duration=10, initial_search=True, update=True, key=None):
         super(SearchAndSaveMarkersTask, self).__init__(key)
         self.robot = robot
         self.robot_address = robot_address
         self.fabrication = fabrication
         self.duration = duration
         self.initial_search = initial_search
-        self.excluded_marker_id = excluded_marker_id
+        self.update = update
         self.marker_ids = []
         
     def receive_marker_ids(self, message):
@@ -176,8 +176,10 @@ class SearchAndSaveMarkersTask(Task):
             marker_id = msg.get('child_frame_id')
             if marker_id not in self.marker_ids:
                 self.log('Found marker with ID: {}'.format(marker_id))
-                if marker_id != self.excluded_marker_id:
+                if (self.update) or (not self.update and not self.robot.mobile_client.marker_frames.get(marker_id)):
                     self.marker_ids.append(marker_id)
+                else:
+                    self.log("Ignoring {}, as it is already recorded in the marker dictionary and update is set to False.".format(marker_id))
                 
     def run(self, stop_thread):
         if self.initial_search == True:
@@ -191,8 +193,6 @@ class SearchAndSaveMarkersTask(Task):
         self.robot.mobile_client.topic_unsubscribe('/tf')
         self.log('Got all the visible marker ids.')
         time.sleep(1)
-        if self.excluded_marker_id is not None:
-            self.log("Excluded the {}.".format(self.excluded_marker_id))
         self.log("Length of the list is {}.".format(len(self.marker_ids)))
         
         # Iterate the marker ids.
