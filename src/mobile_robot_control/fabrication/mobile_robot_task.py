@@ -121,15 +121,21 @@ class MoveJointsTask(URTask):
         super(MoveJointsTask, self).run(stop_thread)
         
 class MoveLinearTask(URTask):
-    def __init__(self, robot, robot_address, frame_WCF, velocity=0.10, radius=0.0, payload=0.0, key=None):
+    def __init__(self, robot, robot_address, frame, in_RCF=True, velocity=0.10, radius=0.0, payload=0.0, key=None):
         super(MoveLinearTask, self).__init__(robot, robot_address, key)
-        self.frame_WCF = frame_WCF 
+        self.robot = robot
+        self.robot_address = robot_address
+        self.frame = frame 
+        self.in_RCF = in_RCF
         self.velocity = velocity
         self.radius = radius
         self.payload = payload 
 
     def create_urscript(self):
-        frame_RCF = self.frame_WCF.transformed(self.robot.transformation_WCF_RCF())
+        if not self.in_RCF:
+            frame_RCF = self.frame.transformed(self.robot.transformation_WCF_RCF())
+        else:
+            frame_RCF = self.frame
     
         if self.robot.attached_tool:
             tool_angle_axis = list(self.robot.attached_tool.frame.point) + list(self.robot.attached_tool.frame.axis_angle_vector)
@@ -199,7 +205,7 @@ class SearchAndSaveMarkersTask(Task):
         if len(self.marker_ids) > 0:
             for marker_id in self.marker_ids:
                 next_key = self.fabrication.get_next_task_key()
-                task = GetMarkerPoseTask(self.robot, marker_id=marker_id, reference_frame_id="base", initial_search=self.initial_search, key=next_key)
+                task = GetMarkerPoseTask(self.robot, marker_id=marker_id, reference_frame_id="robot_arm_base", initial_search=self.initial_search, key=next_key)
                 self.fabrication.add_task(task, key=next_key)
         else:
             self.log('No more markers are visible.')
@@ -208,7 +214,7 @@ class SearchAndSaveMarkersTask(Task):
         return True
     
 class GetMarkerPoseTask(Task):
-    def __init__(self, robot, marker_id="marker_0", reference_frame_id="base", initial_search=True, key=None):
+    def __init__(self, robot, marker_id="marker_0", reference_frame_id="robot_arm_base", initial_search=True, key=None):
         super(GetMarkerPoseTask, self).__init__(key)
         self.robot = robot
         self.marker_id = marker_id
@@ -221,8 +227,9 @@ class GetMarkerPoseTask(Task):
         t0 = time.time()
         while time.time() - t0 < 20 and not stop_thread(): #can be used for live subscription when time limit is removed.
             time.sleep(0.1)
+
             if self.robot.mobile_client.tf_frame is not None:
-                MCF_in_RCF = self.robot.mobile_client.tf_frame.copy()
+                MCF_in_RCF = Frame(self.robot.mobile_client.tf_frame.point, self.robot.mobile_client.tf_frame.zaxis, -self.robot.mobile_client.tf_frame.yaxis)
                 MCF_in_BCF = MCF_in_RCF.transformed(self.robot.transformation_RCF_BCF())
                 if self.initial_search:
                     MCF_in_WCF = MCF_in_BCF
@@ -249,7 +256,7 @@ class FixRobotToMarkerTask(Task):
     def run(self, stop_thread):
         # Get the frame of the fixed marker id.
         self.robot.mobile_client.clean_tf_frame()
-        self.robot.mobile_client.tf_subscribe(self.fixed_marker_id, "base")
+        self.robot.mobile_client.tf_subscribe(self.fixed_marker_id, "robot_arm_base")
         t0 = time.time()
         while time.time() - t0 < 20 and not stop_thread(): #can be used for live subscription when time limit is removed.
             time.sleep(0.1)
@@ -259,7 +266,7 @@ class FixRobotToMarkerTask(Task):
                 break
         if self.robot.mobile_client.tf_frame is None:
             self.log('For {}, could not get the frame.'.format(self.fixed_marker_id))
-        self.robot.mobile_client.tf_unsubscribe(self.fixed_marker_id, "base")
+        self.robot.mobile_client.tf_unsubscribe(self.fixed_marker_id, "robot_arm_base")
         
         # Fix the robot to the marker pose
         if self.marker_pose is not None:
