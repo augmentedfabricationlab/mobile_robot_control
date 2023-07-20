@@ -69,10 +69,12 @@ class MobileRobot(Robot):
     
     @property
     def RCF(self):
-        if self.wheel_type == "outdoor":
-            self._RCF = Frame(Point(0.275, 0.0, 1.049 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
-        elif self.wheel_type == "indoor":
-            self._RCF = Frame(Point(0.275, 0.0, 1.021 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0)) 
+        self._RCF = self.forward_kinematics(self.zero_configuration(), 'ur10e_and_liftkit', True, options={'solver':'model',
+                                                                                                           'link':'robot_arm_base_link'})
+        # if self.wheel_type == "outdoor":
+        #     self._RCF = Frame(Point(0.275, 0.0, 1.049 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
+        # elif self.wheel_type == "indoor":
+        #     self._RCF = Frame(Point(0.275, 0.0, 1.021 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0)) 
         return self._RCF
      
     @property 
