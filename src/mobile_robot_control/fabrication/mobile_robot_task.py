@@ -166,13 +166,12 @@ class MoveLinearTask(URTask):
         super(MoveLinearTask, self).run(stop_thread)
 
 class SearchAndSaveMarkersTask(Task):
-    def __init__(self, robot, robot_address, fabrication, duration=10, initial_search=True, update=True, key=None):
+    def __init__(self, robot, robot_address, fabrication, duration=10, update=True, key=None):
         super(SearchAndSaveMarkersTask, self).__init__(key)
         self.robot = robot
         self.robot_address = robot_address
         self.fabrication = fabrication
         self.duration = duration
-        self.initial_search = initial_search
         self.update = update
         self.marker_ids = []
         
@@ -188,8 +187,6 @@ class SearchAndSaveMarkersTask(Task):
                     self.log("Ignoring {}, as it is already recorded in the marker dictionary and update is set to False.".format(marker_id))
                 
     def run(self, stop_thread):
-        if self.initial_search == True:
-            self.log("As this is the first localization, world coordinate frame is set at the current base frame of the mobile robot.")
         self.marker_ids = []
         # Get the marker ids in the scene
         self.robot.mobile_client.topic_subscribe('/tf', 'tf2_msgs/TFMessage', self.receive_marker_ids)
@@ -205,7 +202,7 @@ class SearchAndSaveMarkersTask(Task):
         if len(self.marker_ids) > 0:
             for marker_id in self.marker_ids:
                 next_key = self.fabrication.get_next_task_key()
-                task = GetMarkerPoseTask(self.robot, marker_id=marker_id, reference_frame_id="robot_arm_base", initial_search=self.initial_search, key=next_key)
+                task = GetMarkerPoseTask(self.robot, marker_id=marker_id, reference_frame_id="robot_arm_base", key=next_key)
                 self.fabrication.add_task(task, key=next_key)
         else:
             self.log('No more markers are visible.')
@@ -213,13 +210,85 @@ class SearchAndSaveMarkersTask(Task):
         self.is_completed = True
         return True
     
+class SearchAndSaveRobotPoseInMarkerTask(Task):
+    def __init__(self, robot, robot_address, fabrication, duration=10, update=True, key=None):
+        super(SearchAndSaveRobotPoseInMarkerTask, self).__init__(key)
+        self.robot = robot
+        self.robot_address = robot_address
+        self.fabrication = fabrication
+        self.duration = duration
+        self.update = update
+        self.marker_ids = []
+        
+    def receive_marker_ids(self, message):
+        msg = message.get('transforms')[0]
+        if msg.get('header').get('frame_id') == 'camera_color_optical_frame':
+            marker_id = msg.get('child_frame_id')
+            if marker_id not in self.marker_ids:
+                self.log('Found marker with ID: {}'.format(marker_id))
+                if (self.update) or (not self.update and not self.robot.mobile_client.marker_frames.get(marker_id)):
+                    self.marker_ids.append(marker_id)
+                else:
+                    self.log("Ignoring {}, as it is already recorded in the marker dictionary and update is set to False.".format(marker_id))
+                
+    def run(self, stop_thread):
+        self.marker_ids = []
+        # Get the marker ids in the scene
+        self.robot.mobile_client.topic_subscribe('/tf', 'tf2_msgs/TFMessage', self.receive_marker_ids)
+        t0 = time.time()
+        while time.time() - t0 < self.duration and not stop_thread():
+            time.sleep(0.1)
+        self.robot.mobile_client.topic_unsubscribe('/tf')
+        self.log('Got all the visible marker ids.')
+        time.sleep(1)
+        self.log("Length of the list is {}.".format(len(self.marker_ids)))
+        
+        # Iterate the marker ids.
+        if len(self.marker_ids) > 0:
+            for marker_id in self.marker_ids:
+                next_key = self.fabrication.get_next_task_key()
+                task = GetRobotPoseInMarkerPoseTask(self.robot, marker_id=marker_id, reference_frame_id="robot_arm_base", key=next_key)
+                self.fabrication.add_task(task, key=next_key)
+        else:
+            self.log('No more markers are visible.')
+            
+        self.is_completed = True
+        return True
+    
+class GetRobotPoseInMarkerPoseTask(Task):
+    def __init__(self, robot, marker_id="marker_0", reference_frame_id="robot_arm_base", key=None):
+        super(GetRobotPoseInMarkerPoseTask, self).__init__(key)
+        self.robot = robot
+        self.marker_id = marker_id
+        self.reference_frame_id = reference_frame_id
+
+    def run(self, stop_thread):
+        self.robot.mobile_client.clean_tf_frame()
+        self.robot.mobile_client.tf_subscribe(self.marker_id, self.reference_frame_id)
+        t0 = time.time()
+        while time.time() - t0 < 20 and not stop_thread(): #can be used for live subscription when time limit is removed.
+            time.sleep(0.1)
+            if self.robot.mobile_client.tf_frame is not None:
+                MCF_in_RCF = Frame(self.robot.mobile_client.tf_frame.point, self.robot.mobile_client.tf_frame.zaxis, -self.robot.mobile_client.tf_frame.yaxis)
+                MCF_in_BCF = MCF_in_RCF.transformed(self.robot.transformation_RCF_BCF())
+                BCF_in_MCF = Frame.from_transformation(Transformation.from_frame(MCF_in_BCF).inverted()) # Invert
+                self.log('Robot base frame in reference to {} is {}.'.format(self.marker_id, BCF_in_MCF))
+                
+                # Marker frames are added to the dict in WCF.
+                self.robot.mobile_client.marker_frames[self.marker_id] = BCF_in_MCF
+                break
+        if self.robot.mobile_client.tf_frame is None:
+            self.log('For {}, could not get the frame.'.format(self.marker_id))
+        self.robot.mobile_client.tf_unsubscribe(self.marker_id, self.reference_frame_id)
+        self.is_completed = True
+        return True 
+    
 class GetMarkerPoseTask(Task):
-    def __init__(self, robot, marker_id="marker_0", reference_frame_id="robot_arm_base", initial_search=True, key=None):
+    def __init__(self, robot, marker_id="marker_0", reference_frame_id="robot_arm_base", key=None):
         super(GetMarkerPoseTask, self).__init__(key)
         self.robot = robot
         self.marker_id = marker_id
         self.reference_frame_id = reference_frame_id
-        self.initial_search = initial_search
 
     def run(self, stop_thread):
         self.robot.mobile_client.clean_tf_frame()
@@ -231,14 +300,9 @@ class GetMarkerPoseTask(Task):
             if self.robot.mobile_client.tf_frame is not None:
                 MCF_in_RCF = Frame(self.robot.mobile_client.tf_frame.point, self.robot.mobile_client.tf_frame.zaxis, -self.robot.mobile_client.tf_frame.yaxis)
                 MCF_in_BCF = MCF_in_RCF.transformed(self.robot.transformation_RCF_BCF())
-                if self.initial_search:
-                    MCF_in_WCF = MCF_in_BCF
-                else:
-                    from_BCF_to_WCF = Transformation.from_change_of_basis(self.robot.BCF, Frame.worldXY()) # T from BCF to WCF
-                    MCF_in_WCF = MCF_in_BCF.transformed(from_BCF_to_WCF)
-                self.log('For {}, got the frame: {}'.format(self.marker_id, MCF_in_WCF))
+                self.log('{} pose in reference to robot base frame is {}.'.format(self.marker_id, MCF_in_BCF))
                 # Marker frames are added to the dict in WCF.
-                self.robot.mobile_client.marker_frames[self.marker_id] = MCF_in_WCF
+                self.robot.mobile_client.marker_frames[self.marker_id] = MCF_in_BCF
                 break
         if self.robot.mobile_client.tf_frame is None:
             self.log('For {}, could not get the frame.'.format(self.marker_id))
