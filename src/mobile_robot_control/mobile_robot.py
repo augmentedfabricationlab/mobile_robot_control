@@ -1,7 +1,7 @@
 from compas_fab.robots import Robot
 
 from compas.geometry import Frame, Point, Vector
-from compas.geometry import Transformation
+from compas.geometry import Transformation, Translation
 
 __all__ = [
     "MobileRobot"
@@ -19,12 +19,10 @@ class MobileRobot(Robot):
 
         self._scale_factor = 1.
         self.model = model
-        # self.attached_tool = None
         self.artist = artist
         self.semantics = semantics
         self.client = client
         self.mobile_client = mobile_client
-        self.wheel_type = kwargs.get("wheel_type") if kwargs.get("wheel_type") else "indoor"
         self.attributes = {}
         self._current_ik = {
             'request_id': None,
@@ -42,7 +40,7 @@ class MobileRobot(Robot):
         self._RRCF = None #ur robot arm coordinate frame in RBCF (RRCF)
         
         self._PCF = Frame.worldXY() #frame for element pick-up on mobile robot's base in RCF (PCF)
-    
+
     @property
     def lift_height(self):
         return self._lift_height
@@ -69,14 +67,18 @@ class MobileRobot(Robot):
     
     @property
     def RCF(self):
-        self._RCF = self.forward_kinematics(self.zero_configuration(), 'ur10e_and_liftkit', True, options={'solver':'model',
-                                                                                                           'link':'robot_arm_base_link'})
+        # self.mobile_client.tf_subscribe("robot_arm_base_link", "robot_odom")
+        # # Check the with statement... or if tf service has blocking, use that.
+        # if self.mobile_client.tf_frame is not None:
+        #     self._RCF = self.mobile_client.tf_frame
+        #     self.mobile_client.clean_tf_frame()
+        # self.mobile_client.tf_unsubscribe("robot_arm_base_link", "robot_odom")
         # if self.wheel_type == "outdoor":
         #     self._RCF = Frame(Point(0.275, 0.0, 1.049 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
         # elif self.wheel_type == "indoor":
-        #     self._RCF = Frame(Point(0.275, 0.0, 1.021 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0)) 
+        self._RCF = Frame(Point(0.275, 0.0, 1.021 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0)) 
         return self._RCF
-     
+
     @property 
     def RWCF(self):
         """Get the reference world coordinate frame.
@@ -84,10 +86,6 @@ class MobileRobot(Robot):
         """
         return self._RWCF
     
-    @RWCF.setter
-    def RWCF(self, RWCF):
-        self._RWCF = RWCF
-        
     def transformation_BCF_WCF(self):
         """Get the transformation from the base coordinate frame (BCF) to the world coordinate frame (WCF).
         -------
@@ -101,20 +99,6 @@ class MobileRobot(Robot):
         :class:`compas.geometry.Transformation`
         """
         return Transformation.from_change_of_basis(Frame.worldXY(), self.BCF)
-
-    def transformation_RCF_BCF(self):
-        """Get the transformation from the robot arm frame (RCF) to the base coordinate frame (BCF).
-        -------
-        :class:`compas.geometry.Transformation`
-        """
-        return Transformation.from_frame(self.RCF)
-    
-    def transformation_BCF_RCF(self):
-        """Get the transformation from the base coordinate frame (BCF) to the robot arm frame (RCF).
-        -------
-        :class:`compas.geometry.Transformation`
-        """
-        return Transformation.from_frame(self.RCF).inverted()
     
     def transformation_RCF_WCF(self):
         """Get the transformation from the robot arm coordinate frame (RCF) to the world coordinate frame (WCF).
@@ -129,6 +113,20 @@ class MobileRobot(Robot):
         :class:`compas.geometry.Transformation`
         """
         return Transformation.concatenated(self.transformation_BCF_RCF(), self.transformation_WCF_BCF())
+    
+    def transformation_RCF_BCF(self):
+        """Get the transformation from the robot arm frame (RCF) to the base coordinate frame (BCF).
+        -------
+        :class:`compas.geometry.Transformation`
+        """
+        return Transformation.from_frame(self.RCF)
+    
+    def transformation_BCF_RCF(self):
+        """Get the transformation from the base coordinate frame (BCF) to the robot arm frame (RCF).
+        -------
+        :class:`compas.geometry.Transformation`
+        """
+        return Transformation.from_frame(self.RCF).inverted()
     
     def transformation_RBCF_WCF(self):
         """Get the transformation from the reference base coordinate frame (RBCF) to the world coordinate frame (WCF).
@@ -160,7 +158,7 @@ class MobileRobot(Robot):
         """
         return Transformation.from_change_of_basis(Frame.worldXY(), self.RWCF)
 
-    def to_local_coordinates(self, frame_WCF):
+    def from_WCF_to_BCF(self, frame_WCF):
         """Represent a frame from the world coordinate system (WCF) in the robot base coordinate system (BCF).
         Parameters
         ----------
@@ -168,13 +166,89 @@ class MobileRobot(Robot):
             A frame in the world coordinate frame.
         Returns
         -------
-        :class:`compas.geometry.Frame`
-            A frame in the robot's coordinate frame.
+        frame_BCF : :class:`compas.geometry.Frame`
+            A frame in the robot base coordinate frame.
         """
         frame_BCF = frame_WCF.transformed(self.transformation_WCF_BCF())
         return frame_BCF
+    
+    def from_BCF_to_WCF(self, frame_BCF):
+        """Represent a frame from the robot's base coordinate system (BCF) in the world coordinate system (WCF).
+        Parameters
+        ----------
+        frame_BCF : :class:`compas.geometry.Frame`
+            A frame in the robot base coordinate frame.
+        Returns
+        -------
+        frame_WCF : :class:`compas.geometry.Frame`
+            A frame in the world coordinate frame.
+        """
+        frame_WCF = frame_BCF.transformed(self.transformation_BCF_WCF())
+        return frame_WCF
+    
+    def from_WCF_to_RCF(self, frame_WCF):
+        """Represent a frame from the world coordinate system (WCF) in the robot arm coordinate system (RCF).
+        Parameters
+        ----------
+        frame_WCF : :class:`compas.geometry.Frame`
+            A frame in the world coordinate frame.
+        Returns
+        -------
+        frame_RCF : :class:`compas.geometry.Frame`
+            A frame in the robot arm coordinate frame.
+        """
+        frame_RCF = frame_WCF.transformed(self.transformation_WCF_RCF())
+        return frame_RCF
+    
+    def from_RCF_to_WCF(self, frame_RCF):
+        """Represent a frame from the robot arm coordinate system (RCF) in the world coordinate system (WCF).
+        Parameters
+        ----------
+        frame_RCF : :class:`compas.geometry.Frame`
+            A frame in the robot arm coordinate frame.
+        Returns
+        -------
+        frame_WCF : :class:`compas.geometry.Frame`
+            A frame in the world coordinate frame.
+        """
+        frame_WCF = frame_RCF.transformed(self.transformation_RCF_WCF())
+        return frame_WCF
+    
+    def from_RCF_to_BCF(self, frame_RCF):
+        """Represent a frame from the robot arm coordinate system (RCF) in the robot base coordinate system (BCF).
+        Parameters
+        ----------
+        frame_RCF : :class:`compas.geometry.Frame`
+            A frame in the robot arm coordinate frame.
+        Returns
+        -------
+        frame_BCF : :class:`compas.geometry.Frame`
+            A frame in the robot base coordinate frame.
+        """
+        frame_BCF = frame_RCF.transformed(self.transformation_RCF_BCF())
+        return frame_BCF
+    
+    def from_BCF_to_RCF(self, frame_BCF):
+        """Represent a frame from the robot base coordinate system (BCF) in the robot arm coordinate system (RCF).
+        Parameters
+        ----------
+        frame_BCF : :class:`compas.geometry.Frame`
+            A frame in the robot base coordinate frame.
+        Returns
+        -------
+        frame_RCF : :class:`compas.geometry.Frame`
+            A frame in the robot arm coordinate frame.
+        """
+        frame_RCF = frame_BCF.transformed(self.transformation_BCF_RCF())
+        return frame_RCF
+    
+    def transform_frame_from_RCF_to_BCF(self, frame_WCF):
+        """Apply the transformation between RCF and BCF to a frame.
+        """
+        inverted_RCF = Frame.from_transformation(self.transformation_BCF_RCF())
+        return inverted_RCF.transformed(Transformation.from_frame(frame_WCF))
 
-    def to_reference_world_coordinates(self, frame_WCF):
+    def from_WCF_to_RWCF(self, frame_WCF):
         """Represent a frame from the world coordinate system (WCF) in the reference world coordinate system (RWCF).
         Parameters
         ----------
@@ -187,17 +261,3 @@ class MobileRobot(Robot):
         """
         frame_RWCF = frame_WCF.transformed(self.transformation_WCF_RWCF())
         return frame_RWCF
-
-    def to_world_coordinates(self, frame_BCF):
-        """Represent a frame from the robot's base coordinate system (BCF) in the world coordinate system (WCF).
-        Parameters
-        ----------
-        frame_OCF : :class:`compas.geometry.Frame`
-            A frame in the robot's coordinate frame.
-        Returns
-        -------
-        :class:`compas.geometry.Frame`
-            A frame in the world coordinate frame.
-        """
-        frame_WCF = frame_BCF.transformed(self.transformation_BCF_WCF())
-        return frame_WCF

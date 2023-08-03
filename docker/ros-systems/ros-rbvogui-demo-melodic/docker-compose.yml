@@ -44,17 +44,32 @@ services:
     environment:
       - ROS_HOSTNAME=rbvogui-demo
       - ROS_MASTER_URI=http://ros-master:11311
-      - DISPLAY=gui:0.0
+      # - DISPLAY=gui:0.0
     depends_on:
       - ros-master
-      - gui
+      # - gui
     command:
       - roslaunch
       - --wait
       - rbvogui_xl_ur10e_liftkit_moveit_config
       - demo.launch
+      - use_rviz:=false
+  
+  tf-republisher:
+    image: augmentedfabricationlab/ros-rbvogui-planner:latest
+    container_name: tf-republisher
+    environment:
+      - ROS_HOSTNAME=tf-republisher
+      - ROS_MASTER_URI=http://ros-master:11311
+    depends_on:
+      - ros-master
+    command:
+      - rosrun
+      - --wait
+      - tf2_web_republisher
+      - tf2_web_republisher
 
-  gui:
-    image: gramaziokohler/novnc:latest
-    ports:
-      - "8080:8080"
+  # gui:
+  #   image: gramaziokohler/novnc:latest
+  #   ports:
+  #     - "8080:8080"

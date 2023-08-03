@@ -14,7 +14,8 @@ __all__ = [
     "MotionPlanTask",
     "SearchAndSaveMarkersTask",
     "GetMarkerPoseTask",
-    "FixRobotToMarkerTask"
+    "FixRobotToMarkerTask",
+    "SearchAndSaveRobotPoseInMarkerTask"
 ]
     
 class MotionPlanTask(Task):
