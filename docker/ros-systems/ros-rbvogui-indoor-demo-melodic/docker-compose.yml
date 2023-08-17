@@ -53,6 +53,7 @@ services:
       - --wait
       - rbvogui_xl_ur10e_liftkit_indoor_moveit_config
       - demo.launch
+      - use_rviz:=false
 
   gui:
     image: gramaziokohler/novnc:latest
