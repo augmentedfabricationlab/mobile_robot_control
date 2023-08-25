@@ -9,6 +9,7 @@ import time
 import math
 
 __all__ = [
+    "GetConfigurationTask",
     "MoveJointsTask",
     "MoveLinearTask",
     "MotionPlanTask",
@@ -17,6 +18,44 @@ __all__ = [
     "FixRobotToMarkerTask",
     "SearchAndSaveRobotPoseInMarkerTask"
 ]
+
+### Robot motion related tasks ###
+
+class GetConfigurationTask(URTask):
+    def __init__(self, robot, robot_address, send=False, key=None):
+        super(GetConfigurationTask, self).__init__(robot, robot_address, key)
+        self.robot = robot
+        self.robot_address = robot_address
+        self.send = send
+        self.configuration = None
+                
+    def create_urscript(self):
+        self.urscript = URScript_AreaGrip(*self.robot_address)
+        self.urscript.start()
+        self.urscript.add_line("textmsg(\">> TASK {}.\")".format(self.key))
+
+        self.urscript.set_socket(self.server.ip, self.server.port, self.server.name)
+        self.urscript.socket_open(self.server.name)
+        
+        self.urscript.get_current_pose_joints(self.send)
+
+        self.urscript.socket_send_line_string(self.req_msg, self.server.name)
+        self.urscript.socket_close(self.server.name)
+        
+        self.urscript.end()
+        self.urscript.generate()
+
+    def run(self, stop_thread):
+        self.create_urscript()
+        super(GetConfigurationTask, self).run(stop_thread)
+
+        ms = 0
+        while not stop_thread() and len(self.server.msgs) == 0 and ms < 1000:
+            time.sleep(0.001)
+            ms += 1
+        
+        result = self.server.msgs.get(0, "Timed out")
+        self.log(result)
     
 class MotionPlanTask(Task):
     def __init__(self, robot, frame_WCF, start_configuration, group, tolerance_position=0.001, tolerance_xaxis=1.0, tolerance_yaxis=1.0, 
@@ -38,6 +77,8 @@ class MotionPlanTask(Task):
         self.planner_id = planner_id
         
         self.trajectory = None
+        self.replan = False
+        self.approved = False
         self.results = {"configurations" : [], "planes" : [], "positions" : [], "velocities" : [], "accelerations" : []}
         
     def run(self, stop_thread):
@@ -45,43 +86,60 @@ class MotionPlanTask(Task):
         frame_BCF = self.frame_WCF.transformed(self.robot.transformation_WCF_BCF())
         
         if self.robot.attached_tool:
-            tool0_BCF = self.robot.from_tcf_to_t0cf([frame_BCF])[0]
+            tool0_frame = self.robot.from_tcf_to_t0cf([frame_BCF])[0]
         else:
-            tool0_BCF = frame_BCF
-            
-        goal_constraints = self.robot.constraints_from_frame(tool0_BCF, self.tolerance_position, tolerances_axes, self.group)
+            tool0_frame = frame_BCF
+
+        goal_constraints = self.robot.constraints_from_frame(tool0_frame, self.tolerance_position, tolerances_axes, self.group)
         
-        self.log("Planning trajectory...")
-        self.trajectory = self.robot.plan_motion(goal_constraints,
-                                    start_configuration=self.start_configuration,
-                                    group=self.group,
-                                    options=dict(
-                                        attached_collision_meshes=self.attached_collision_meshes,
-                                        path_constraints=self.path_constraints,
-                                        planner_id=self.planner_id,
-                                    ))
-        
+        trial = 0
+
         while not stop_thread():
-            if self.trajectory is not None:
+            self.replan = False
+            self.results = {"configurations" : [], "planes" : [], "positions" : [], "velocities" : [], "accelerations" : []}
+
+            self.log("Planning trajectory... Try {}.".format(trial))
+            self.trajectory = self.robot.plan_motion(goal_constraints,
+                                        start_configuration=self.start_configuration,
+                                        group=self.group,
+                                        options=dict(
+                                            attached_collision_meshes=self.attached_collision_meshes,
+                                            path_constraints=self.path_constraints,
+                                            planner_id=self.planner_id,
+                                        ))
+            
+            while not stop_thread():
+                if self.trajectory is not None:
+                    self.log('Trajectory found at {}.'.format(self.trajectory))
+                    for c in self.trajectory.points:
+                        config = self.robot.merge_group_with_full_configuration(c, self.trajectory.start_configuration, self.group)
+                        joint_names_ordered = ['robot_ewellix_lift_top_joint', 'robot_arm_shoulder_pan_joint', 'robot_arm_shoulder_lift_joint', 'robot_arm_elbow_joint', 'robot_arm_wrist_1_joint', 'robot_arm_wrist_2_joint', 'robot_arm_wrist_3_joint']
+                        joint_values_ordered = [config.joint_values[config.joint_names.index(joint_name)] for joint_name in joint_names_ordered]
+                        joint_types_ordered = [config.joint_types[config.joint_names.index(joint_name)] for joint_name in joint_names_ordered]
+                        mobile_robot_config = Configuration(joint_values_ordered, joint_types_ordered, joint_names_ordered)
+                        self.results["configurations"].append(mobile_robot_config)
+                
+                        frame_t = self.robot.forward_kinematics(c, self.group, options=dict(solver='model'))
+                        self.results["planes"].append(draw_frame(frame_t.transformed(self.robot.transformation_BCF_WCF())))
+                        self.results["positions"].append(c.positions)
+                        self.results["velocities"].append(c.velocities)
+                        self.results["accelerations"].append(c.accelerations)
+                    break
+                time.sleep(0.1)
+
+            while not stop_thread():
+                self.log("Waiting for action. Either approve the motion plan or replan!")
+                if self.replan or self.approved:
+                    break
+                time.sleep(0.1)
+
+            if self.approved:
+                self.log("Motion plan approved.")
                 break
-            time.sleep(0.1)
+            else:
+                trial = trial + 1
         
-        self.log('Trajectory found at {}.'.format(self.trajectory))
-        
-        for c in self.trajectory.points:
-            config = self.robot.merge_group_with_full_configuration(c, self.trajectory.start_configuration, self.group)
-            joint_names_ordered = ['robot_ewellix_lift_top_joint', 'robot_arm_shoulder_pan_joint', 'robot_arm_shoulder_lift_joint', 'robot_arm_elbow_joint', 'robot_arm_wrist_1_joint', 'robot_arm_wrist_2_joint', 'robot_arm_wrist_3_joint']
-            joint_values_ordered = [config.joint_values[config.joint_names.index(joint_name)] for joint_name in joint_names_ordered]
-            joint_types_ordered = [config.joint_types[config.joint_names.index(joint_name)] for joint_name in joint_names_ordered]
-            mobile_robot_config = Configuration(joint_values_ordered, joint_types_ordered, joint_names_ordered)
-            self.results["configurations"].append(mobile_robot_config)
-    
-            frame_t = self.robot.forward_kinematics(c, self.group, options=dict(solver='model'))
-            self.results["planes"].append(draw_frame(frame_t.transformed(self.robot.transformation_BCF_WCF())))
-            self.results["positions"].append(c.positions)
-            self.results["velocities"].append(c.velocities)
-            self.results["accelerations"].append(c.accelerations)
-        
+        self.log("This should come in the end.")
         self.is_completed = True
         return True
  
@@ -165,6 +223,8 @@ class MoveLinearTask(URTask):
     def run(self, stop_thread):
         self.create_urscript()
         super(MoveLinearTask, self).run(stop_thread)
+
+### Marker related tasks ###
 
 class SearchAndSaveMarkersTask(Task):
     def __init__(self, robot, robot_address, fabrication, duration=10, update=True, key=None):
