@@ -216,10 +216,10 @@ class MobileRobotClient(object):
             self.current_joint_values[joint_name] = message.get('position')[key]
         
     def joint_states_subscribe(self):
-        self.topic_subscribe('/robot/joint_states', 'sensor_msgs/JointState', self._receive_joint_states)
+        self.topic_subscribe('/joint_states', 'sensor_msgs/JointState', self._receive_joint_states)
     
     def joint_states_unsubscribe(self):
-        self.topic_unsubscribe('/robot/joint_states')
+        self.topic_unsubscribe('/joint_states')
         
     def get_current_ur10e_and_liftkit_config(self):
         joint_names_ordered = ['robot_ewellix_lift_top_joint', 'robot_arm_shoulder_pan_joint', 'robot_arm_shoulder_lift_joint', 'robot_arm_elbow_joint', 'robot_arm_wrist_1_joint', 'robot_arm_wrist_2_joint', 'robot_arm_wrist_3_joint']

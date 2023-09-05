@@ -58,14 +58,13 @@ class GetConfigurationTask(URTask):
         self.log(result)
     
 class MotionPlanTask(Task):
-    def __init__(self, robot, frame_WCF, start_configuration, group, tolerance_position=0.001, tolerance_xaxis=1.0, tolerance_yaxis=1.0, 
-                 tolerance_zaxis=1.0, attached_collision_meshes=None, path_constraints=None, planner_id='RRTConnect', recalculate_path=False, key=None):
+    def __init__(self, robot, frame_WCF, start_configuration, group, tolerance_position=0.001, tolerance_xaxis=1.0, tolerance_yaxis=0.1, 
+                 tolerance_zaxis=0.1, attached_collision_meshes=None, path_constraints=None, planner_id='RRTConnect', key=None):
         super(MotionPlanTask, self).__init__(key)
         self.robot = robot
         self.group = group
         self.frame_WCF = frame_WCF
         self.start_configuration = start_configuration
-        self.recalculate_path = recalculate_path
         
         self.tolerance_position = tolerance_position 
         self.tolerance_xaxis = tolerance_xaxis
