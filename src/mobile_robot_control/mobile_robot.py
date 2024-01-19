@@ -67,12 +67,12 @@ class MobileRobot(Robot):
     
     @property
     def RCF(self):
-        # self.mobile_client.tf_subscribe("robot_arm_base_link", "robot_odom")
+        # self.mobile_client.tf_subscribe("robot_arm_base", "robot_base_footprint")
         # # Check the with statement... or if tf service has blocking, use that.
         # if self.mobile_client.tf_frame is not None:
         #     self._RCF = self.mobile_client.tf_frame
         #     self.mobile_client.clean_tf_frame()
-        # self.mobile_client.tf_unsubscribe("robot_arm_base_link", "robot_odom")
+        # self.mobile_client.tf_unsubscribe("robot_arm_base", "robot_base_footprint")
         # if self.wheel_type == "outdoor":
         #     self._RCF = Frame(Point(0.275, 0.0, 1.049 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
         # elif self.wheel_type == "indoor":
