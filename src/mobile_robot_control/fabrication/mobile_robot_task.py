@@ -4,6 +4,8 @@ from ur_fabrication_control.direct_control.mixins import URScript_AreaGrip
 from compas_ghpython import draw_frame
 from compas_fab.robots import Configuration
 from compas.geometry import Frame, Transformation, Point, Vector
+import json
+# from pathlib import Path
 
 import time
 import math
@@ -11,45 +13,45 @@ import math
 __all__ = [
     "MoveJointsTask",
     "MoveLinearTask",
-    "MotionPlanTask",
+    "MotionPlanConfigurationTask",
+    "MotionPlanFrameTask",
+    "InverseKinematicsTask",
+    "GetConfigurationTask",
     "SearchAndSaveMarkersTask",
     "GetMarkerPoseTask",
     "FixRobotToMarkerTask"
 ]
-    
-class MotionPlanTask(Task):
-    def __init__(self, robot, frame_WCF, start_configuration, group, tolerance_position=0.001, tolerance_xaxis=1.0, tolerance_yaxis=1.0, 
-                 tolerance_zaxis=1.0, attached_collision_meshes=None, path_constraints=None, planner_id='RRTConnect', recalculate_path=False, key=None):
-        super(MotionPlanTask, self).__init__(key)
+
+### Moveit tasks ###
+
+class MotionPlanConfigurationTask(Task):
+    def __init__(self, robot, target_configuration, start_configuration, group='ur10e', 
+                 tolerance_above=[math.radians(1)] * 6, tolerance_below=[math.radians(1)] * 6,
+                 attached_collision_meshes=None, path_constraints=None, planner_id='RRTConnect', key=None):
+        super(MotionPlanConfigurationTask, self).__init__(key)
         self.robot = robot
         self.group = group
-        self.frame_WCF = frame_WCF
+        self.target_configuration = target_configuration
         self.start_configuration = start_configuration
-        self.recalculate_path = recalculate_path
         
-        self.tolerance_position = tolerance_position 
-        self.tolerance_xaxis = tolerance_xaxis
-        self.tolerance_yaxis = tolerance_yaxis 
-        self.tolerance_zaxis = tolerance_zaxis
-        
+        self.tolerance_above = tolerance_above 
+        self.tolerance_below = tolerance_below
+
         self.path_constraints = path_constraints
         self.attached_collision_meshes = attached_collision_meshes 
         self.planner_id = planner_id
         
         self.trajectory = None
         self.results = {"configurations" : [], "planes" : [], "positions" : [], "velocities" : [], "accelerations" : []}
-        
+
     def run(self, stop_thread):
-        tolerances_axes = [math.radians(self.tolerance_xaxis), math.radians(self.tolerance_yaxis), math.radians(self.tolerance_zaxis)]
-        frame_BCF = self.frame_WCF.transformed(self.robot.transformation_WCF_BCF())
-        
-        if self.robot.attached_tool:
-            tool0_BCF = self.robot.from_tcf_to_t0cf([frame_BCF])[0]
-        else:
-            tool0_BCF = frame_BCF
-            
-        goal_constraints = self.robot.constraints_from_frame(tool0_BCF, self.tolerance_position, tolerances_axes, self.group)
-        
+        goal_constraints = self.robot.constraints_from_configuration(
+            configuration=self.target_configuration,
+            tolerances_above=self.tolerance_above,
+            tolerances_below=self.tolerance_below,
+            group=self.group,
+            )
+
         self.log("Planning trajectory...")
         self.trajectory = self.robot.plan_motion(goal_constraints,
                                     start_configuration=self.start_configuration,
@@ -83,13 +85,152 @@ class MotionPlanTask(Task):
         
         self.is_completed = True
         return True
- 
+
+class MotionPlanFrameTask(Task):
+    def __init__(self, robot, frame_WCF, start_configuration, group='ur10e', 
+                 tolerance_position=0.001, tolerance_xaxis=1.0, tolerance_yaxis=1.0, tolerance_zaxis=1.0, 
+                 attached_collision_meshes=None, path_constraints=None, planner_id='RRTConnect', key=None):
+        super(MotionPlanFrameTask, self).__init__(key)
+        self.robot = robot
+        self.group = group
+        self.frame_WCF = frame_WCF
+        self.start_configuration = start_configuration
+        
+        self.tolerance_position = tolerance_position 
+        self.tolerance_xaxis = tolerance_xaxis
+        self.tolerance_yaxis = tolerance_yaxis 
+        self.tolerance_zaxis = tolerance_zaxis
+        
+        self.path_constraints = path_constraints
+        self.attached_collision_meshes = attached_collision_meshes 
+        self.planner_id = planner_id
+        
+        self.trajectory = None
+        self.results = {"configurations" : [], "planes" : [], "positions" : [], "velocities" : [], "accelerations" : []}
+
+        self.approved = False
+        self.replan = False
+        
+    def run(self, stop_thread):
+        tolerances_axes = [math.radians(self.tolerance_xaxis), math.radians(self.tolerance_yaxis), math.radians(self.tolerance_zaxis)]
+        frame_BCF = self.frame_WCF.transformed(self.robot.transformation_WCF_BCF())
+        tool0_BCF = frame_BCF
+        # if self.robot.attached_tool:
+        #     tool0_BCF = self.robot.from_tcf_to_t0cf([frame_BCF])[0]
+        # else:
+        #     tool0_BCF = frame_BCF
+            
+        goal_constraints = self.robot.constraints_from_frame(tool0_BCF, self.tolerance_position, tolerances_axes, self.group)
+        
+        while not stop_thread():
+            self.replan = False
+            self.trajectory = None
+            self.results = {"configurations" : [], "planes" : [], "positions" : [], "velocities" : [], "accelerations" : []}
+
+            self.log("Planning trajectory...")
+            self.trajectory = self.robot.plan_motion(goal_constraints,
+                                        start_configuration=self.start_configuration,
+                                        group=self.group,
+                                        options=dict(
+                                            attached_collision_meshes=self.attached_collision_meshes,
+                                            path_constraints=self.path_constraints,
+                                            planner_id=self.planner_id,
+                                        ))
+            
+            while not stop_thread():
+                if self.trajectory is not None:
+                    break
+                time.sleep(0.1)
+            
+            self.log('Trajectory found at {}.'.format(self.trajectory))
+            
+            for c in self.trajectory.points:
+                config = self.robot.merge_group_with_full_configuration(c, self.trajectory.start_configuration, self.group)
+                joint_names_ordered = ['robot_ewellix_lift_top_joint', 'robot_arm_shoulder_pan_joint', 'robot_arm_shoulder_lift_joint', 'robot_arm_elbow_joint', 'robot_arm_wrist_1_joint', 'robot_arm_wrist_2_joint', 'robot_arm_wrist_3_joint']
+                joint_values_ordered = [config.joint_values[config.joint_names.index(joint_name)] for joint_name in joint_names_ordered]
+                joint_types_ordered = [config.joint_types[config.joint_names.index(joint_name)] for joint_name in joint_names_ordered]
+                mobile_robot_config = Configuration(joint_values_ordered, joint_types_ordered, joint_names_ordered)
+                self.results["configurations"].append(mobile_robot_config)
+        
+                frame_t = self.robot.forward_kinematics(c, self.group, options=dict(solver='model'))
+                self.results["planes"].append(draw_frame(frame_t.transformed(self.robot.transformation_BCF_WCF())))
+                self.results["positions"].append(c.positions)
+                self.results["velocities"].append(c.velocities)
+                self.results["accelerations"].append(c.accelerations)
+
+            while not stop_thread():
+                time.sleep(0.1)
+                if self.approved == True or self.replan == True:
+                    break
+            if self.approved == True:
+                break
+            time.sleep(0.1)
+        
+        self.is_completed = True
+        return True
+
+class InverseKinematicsTask(Task):
+    def __init__(self, robot, frame_WCF, start_configuration, group='ur10e', json_path=None, key=None):
+        super(InverseKinematicsTask, self).__init__(key)
+        self.robot = robot
+        self.frame_WCF = frame_WCF
+        self.start_configuration = start_configuration
+        self.group = group
+        self.configuration = None
+        self.path = json_path
+        
+    def run(self, stop_thread):
+        frame_BCF = self.frame_WCF.transformed(self.robot.transformation_WCF_BCF())
+        
+        self.log("Computing inverse kinematics...")
+        self.configuration = self.robot.inverse_kinematics(frame_BCF, self.start_configuration, self.group)
+        
+        while not stop_thread():
+            if self.configuration is not None:
+                break
+            time.sleep(0.1)
+        
+        self.log('Configuration found at {}.'.format(self.configuration))
+        # filename = "Task_{}.json".format(self.key)
+        # filepath = self.path / filename
+        # json_data = json.dumps(self.configuration.to_data())
+
+        # with open(filepath, "w") as f:
+        #     f.write(json_data)
+        
+        self.is_completed = True
+        return True
+
+class GetConfigurationTask(Task):
+    def __init__(self, robot, key=None):
+        super(GetConfigurationTask, self).__init__(key)
+        self.robot = robot
+        self.configuration = None
+
+    def run(self, stop_thread):
+        self.log("Waiting for current configuration...")
+        current_joint_values = self.robot.mobile_client.current_joint_values
+
+        joint_names_ordered = ['robot_ewellix_top_lift_joint','robot_arm_shoulder_pan_joint', 'robot_arm_shoulder_lift_joint', 'robot_arm_elbow_joint', 'robot_arm_wrist_1_joint', 'robot_arm_wrist_2_joint', 'robot_arm_wrist_3_joint']
+        joint_values_ordered = [current_joint_values.get(joint_name, 0.00000) for joint_name in joint_names_ordered]
+        joint_types_ordered = [2, 0, 0, 0, 0, 0, 0]
+        self.configuration = Configuration(joint_values_ordered, joint_types_ordered)
+
+        self.log("Current configuration is: {}".format(self.configuration))
+        
+        self.is_completed = True
+        return True
+    
+### UR direct tasks ###
+
 class MoveJointsTask(URTask):
-    def __init__(self, robot, robot_address, configuration, velocity=0.10, payload=0.0, key=None):
+    def __init__(self, robot, robot_address, configuration, velocity=0.10, radius=0.1, payload=0.0, CoG=[0.0,0.0,0.0], key=None):
         super(MoveJointsTask, self).__init__(robot, robot_address, key)
         self.configuration = configuration 
         self.velocity = velocity
-        self.payload = payload 
+        self.radius = radius
+        self.payload = payload
+        self.CoG = CoG
 
     def create_urscript(self):
         if self.robot.attached_tool:
@@ -101,13 +242,13 @@ class MoveJointsTask(URTask):
         self.urscript = URScript_AreaGrip(*self.robot_address)
         self.urscript.start()
         self.urscript.set_tcp(tool_angle_axis)
-        self.urscript.set_payload(self.payload)
+        self.urscript.set_payload(self.payload, self.CoG)
         self.urscript.add_line("textmsg(\">> TASK{}.\")".format(self.key))
         
         self.urscript.set_socket(self.server.ip, self.server.port, self.server.name)
         self.urscript.socket_open(self.server.name)
         
-        self.urscript.move_joint(self.configuration, self.velocity)
+        self.urscript.move_joint(self.configuration, self.velocity, self.radius)
         
         self.urscript.socket_send_line_string(self.req_msg, self.server.name)
         self.urscript.socket_close(self.server.name)
@@ -164,6 +305,8 @@ class MoveLinearTask(URTask):
     def run(self, stop_thread):
         self.create_urscript()
         super(MoveLinearTask, self).run(stop_thread)
+
+### Marker related tasks ###
 
 class SearchAndSaveMarkersTask(Task):
     def __init__(self, robot, robot_address, fabrication, duration=10, update=True, key=None):
