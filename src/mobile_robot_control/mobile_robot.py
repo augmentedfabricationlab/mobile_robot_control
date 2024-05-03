@@ -23,7 +23,6 @@ class MobileRobot(Robot):
         self.semantics = semantics
         self.client = client
         self.mobile_client = mobile_client
-        self.wheel_type = kwargs.get("wheel_type") if kwargs.get("wheel_type") else "indoor"
         self.attributes = {}
         self._current_ik = {
             'request_id': None,
@@ -34,7 +33,7 @@ class MobileRobot(Robot):
         
         self._WCF = Frame.worldXY() #world coordinate frame (WCF)
         self._BCF = Frame.worldXY() #base coordinate frame in WCF (BCF)
-        self._RCF = None #ur robot arm coordinate frame in BCF (RCF)
+        self._RCF = Frame(Point(0.0, 0.0, self._lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0)) #ur robot arm coordinate frame in BCF (RCF)
         
         self._RWCF = Frame.worldXY() #reference world coordinate frame (RWCF) 
         self._RBCF = Frame.worldXY() #base coordinate frame in RWCF (RBCF)
@@ -46,9 +45,10 @@ class MobileRobot(Robot):
     def lift_height(self):
         return self._lift_height
     
-    @lift_height.setter
+    @lift_height.setter  
     def lift_height(self, lift_height):
         self._lift_height = lift_height
+        self._RCF = Frame(Point(0.0, 0.0, self._lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
             
     @property
     def PCF(self):
@@ -68,10 +68,10 @@ class MobileRobot(Robot):
     
     @property
     def RCF(self):
-        if self.mobile_client != None:
-            if self._RCF == None:
-                tf_client = tf.TFClient(self.mobile_client.ros_client, fixed_frame="robot_base_footprint", angular_threshold=0.0, rate=10.0)
-                tf_client.subscribe("robot_arm_base", self._receive_base_frame_callback)
+        # if self.mobile_client != None:
+        #     if self._RCF == None:
+        #         tf_client = tf.TFClient(self.mobile_client.ros_client, fixed_frame="robot_base_footprint", angular_threshold=0.0, rate=10.0)
+        #         tf_client.subscribe("robot_arm_base", self._receive_base_frame_callback)
         return self._RCF
     
     def _receive_base_frame_callback(self, message):
