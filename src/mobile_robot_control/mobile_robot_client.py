@@ -51,20 +51,23 @@ class MobileRobotClient(object):
         """_summary_
         """
         self.ros_client.close()
-        
-    def tf_subscribe(self, target_frame, reference_frame):
-        """_summary_
 
-        Args:
-            target_frame (str): Name of the target frame requested.
-            reference_frame (str): Name of the reference frame requested.
-        """
+    def tf_subscribe(self, target_frame, reference_frame, tf_callback=None):
+        if tf_callback == None:
+            tf_callback = self._receive_tf_frame_callback
         if not self.tf_clients.get(reference_frame):
             tf_client = tf.TFClient(self.ros_client, fixed_frame=reference_frame, angular_threshold=0.0, rate=10.0)
             self.tf_clients[reference_frame] = tf_client
         else:
             tf_client = self.tf_clients.get(reference_frame)
-        tf_client.subscribe(target_frame, self._receive_tf_frame_callback)
+        tf_client.subscribe(target_frame, tf_callback)
+
+    def tf_unsubscribe(self, target_frame, reference_frame, tf_callback=None):
+        if tf_callback == None:
+            tf_callback = self._receive_tf_frame_callback
+        if self.tf_clients.get(reference_frame):
+            tf_client = self.tf_clients.get(reference_frame)
+            tf_client.unsubscribe(target_frame, tf_callback)
         
     def _receive_tf_frame_callback(self, message):
         pose_point = Point(message['translation']['x'], message['translation']['y'], message['translation']['z'])
@@ -74,20 +77,6 @@ class MobileRobotClient(object):
         
     def clean_tf_frame(self):
         self.tf_frame = None
-
-    def tf_unsubscribe(self, target_frame, reference_frame):
-        """_summary_
-
-        Args:
-            target_frame (str): Name of target frame. e.g. 'marker_0'
-            reference_frame (str): Name of reference frame. e.g. 'base'
-        """
-        if self.tf_clients.get(reference_frame):
-            tf_client = self.tf_clients.get(reference_frame)
-            try:
-                tf_client.unsubscribe(target_frame, self._receive_tf_frame_callback)
-            except TypeError:
-                pass
         
     def service_provide(self, service_name, service_type, handler=None):
         """Start advertising the service. 

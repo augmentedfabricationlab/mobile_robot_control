@@ -33,7 +33,7 @@ class MobileRobot(Robot):
 
         self._WCF = Frame.worldXY() #world coordinate frame (WCF)
         self._BCF = Frame.worldXY() #base coordinate frame in WCF (BCF)
-        self._RCF = Frame(Point(0.0, 0.0, 1.002 + self._lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0)) #ur robot arm coordinate frame in BCF (RCF)
+        self._RCF = Frame(Point(0.0, 0.0, 1.002 + self._lift_height), Vector(-1, 0, 0), Vector(0, -1, 0)) #ur robot arm coordinate frame in BCF (RCF) #Frame(Point(0.0, 0.0, 1.002 + self._lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
 
         self._RWCF = Frame.worldXY() #reference world coordinate frame (RWCF)
         self._RBCF = Frame.worldXY() #base coordinate frame in RWCF (RBCF)
@@ -48,8 +48,7 @@ class MobileRobot(Robot):
     @lift_height.setter
     def lift_height(self, lift_height):
         self._lift_height = lift_height
-        self._RCF = Frame(Point(0.0, 0.0, 1.002 + self._lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
-
+        self._RCF = Frame(Point(0.0, 0.0, 1.002 + self._lift_height), Vector(-1, 0, 0), Vector(0, -1, 0))
 
     @property
     def PCF(self):
@@ -80,16 +79,6 @@ class MobileRobot(Robot):
         pose_quaternion = Quaternion(message['rotation']['w'], message['rotation']['x'], message['rotation']['y'], message['rotation']['z'])
         pose_frame = Frame.from_quaternion(pose_quaternion, pose_point)
         self._RCF = pose_frame
-
-        # if self._RCF == None:
-        #     robot_arm_base_link = self.forward_kinematics(self.zero_configuration(), 'ur10e', True, options={'link':'robot_arm_base_link'})
-        #     self._RCF = Frame(robot_arm_base_link.point, -robot_arm_base_link.xaxis, -robot_arm_base_link.yaxis)
-        # if self.wheel_type == "outdoor":
-        #     self._RCF = Frame(Point(0.275, 0.0, 1.049 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
-        # elif self.wheel_type == "indoor":
-        #     self._RCF = Frame(Point(0.275, 0.0, 1.021 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
-        #     self._RCF = Frame(Point(0.275, 0.0, 1.0384 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
-
 
     @property
     def RWCF(self):
