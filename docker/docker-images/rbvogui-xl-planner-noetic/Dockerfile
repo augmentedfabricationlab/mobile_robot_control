@@ -35,7 +35,7 @@ RUN echo "Building tools for ROS" \
 
     # Install dependencies
     && cd $CATKIN_WS \
-    && rosdep install -y --from-paths . --ignore-src --rosdistro ${ROS_DISTRO}\
+    && rosdep install -y --from-paths . --ignore-src --rosdistro ${ROS_DISTRO} \
     # Build catkin workspace
     && catkin_make \
     # Clear apt-cache to reduce image size
