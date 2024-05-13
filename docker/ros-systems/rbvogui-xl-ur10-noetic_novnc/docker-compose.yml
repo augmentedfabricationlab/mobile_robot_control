@@ -1,0 +1,78 @@
+# # merging docker-compose.yml from:
+# # mobile_robot_control\docker\ros-systems\ros-rbvogui-indoor-demo-melodic
+# # ur_fabrication_control\docker\ros-systems\ros-ur10e-demo
+version: '2'
+services:
+  ros-master:
+    image: daricht/rbvogui:latest
+    container_name: ros-master
+    ports:
+      - "11311:11311"
+    command:
+      - roscore
+    networks:
+      - X11
+
+  ros-bridge:
+    image: daricht/rbvogui:latest
+    container_name: ros-bridge
+    environment:
+      - "ROS_HOSTNAME=ros-bridge"
+      - "ROS_MASTER_URI=http://ros-master:11311"
+    ports:
+      - "9090:9090"
+    depends_on:
+      - ros-master
+    command:
+      - roslaunch
+      - --wait
+      - rosbridge_server
+      - rosbridge_websocket.launch
+    networks:
+      - X11
+
+  ros-fileserver:
+    image: daricht/rbvogui:latest
+    container_name: ros-fileserver
+    environment:
+      - ROS_HOSTNAME=ros-fileserver
+      - ROS_MASTER_URI=http://ros-master:11311
+      - DISPLAY=gui:0.0
+    depends_on:
+      - ros-master
+    command:
+      - roslaunch
+      - --wait
+      - file_server
+      - file_server.launch
+    networks:
+      - X11
+
+  rbvogui-demo:
+    image: daricht/rbvogui:latest
+    container_name: rbvogui-demo
+    environment:
+      - ROS_HOSTNAME=rbvogui-demo
+      - ROS_MASTER_URI=http://ros-master:11311
+      - DISPLAY=gui:0.0
+    depends_on:
+      - ros-master
+      - gui
+    command:
+      - roslaunch
+      - --wait
+      - rbvogui_xl_ur10e_liftkit_indoor_moveit_config
+      - demo.launch
+      - use_rviz:=true
+    networks:
+      - X11
+
+  gui:
+    image: daricht/ros-noetic-novnc:latest
+    ports:
+      - "8080:8080"
+    networks:
+      - X11
+
+networks:
+  X11:
