@@ -1,15 +1,20 @@
+# # merging docker-compose.yml from:
+# # mobile_robot_control\docker\ros-systems\ros-rbvogui-indoor-demo-melodic
+# # ur_fabrication_control\docker\ros-systems\ros-ur10e-demo
 version: '2'
 services:
   ros-master:
-    image: augmentedfabricationlab/ros-rbvogui-planner:latest
+    image: daricht/rbvogui:latest
     container_name: ros-master
     ports:
       - "11311:11311"
     command:
       - roscore
+    networks:
+      - X11
 
   ros-bridge:
-    image: augmentedfabricationlab/ros-rbvogui-planner:latest
+    image: daricht/rbvogui:latest
     container_name: ros-bridge
     environment:
       - "ROS_HOSTNAME=ros-bridge"
@@ -23,13 +28,16 @@ services:
       - --wait
       - rosbridge_server
       - rosbridge_websocket.launch
+    networks:
+      - X11
 
   ros-fileserver:
-    image: augmentedfabricationlab/ros-rbvogui-planner:latest
+    image: daricht/rbvogui:latest
     container_name: ros-fileserver
     environment:
       - ROS_HOSTNAME=ros-fileserver
       - ROS_MASTER_URI=http://ros-master:11311
+      - DISPLAY=gui:0.0
     depends_on:
       - ros-master
     command:
@@ -37,39 +45,34 @@ services:
       - --wait
       - file_server
       - file_server.launch
+    networks:
+      - X11
 
   rbvogui-demo:
-    image: augmentedfabricationlab/ros-rbvogui-planner:latest
+    image: daricht/rbvogui:latest
     container_name: rbvogui-demo
     environment:
       - ROS_HOSTNAME=rbvogui-demo
       - ROS_MASTER_URI=http://ros-master:11311
-      # - DISPLAY=gui:0.0
+      - DISPLAY=gui:0.0
     depends_on:
       - ros-master
-      # - gui
+      - gui
     command:
       - roslaunch
       - --wait
-      - rbvogui_xl_ur10e_liftkit_moveit_config
+      - rbvogui_xl_ur10e_liftkit_indoor_moveit_config
       - demo.launch
-      - use_rviz:=false
-  
-  tf-republisher:
-    image: augmentedfabricationlab/ros-rbvogui-planner:latest
-    container_name: tf-republisher
-    environment:
-      - ROS_HOSTNAME=tf-republisher
-      - ROS_MASTER_URI=http://ros-master:11311
-    depends_on:
-      - ros-master
-    command:
-      - rosrun
-      - --wait
-      - tf2_web_republisher
-      - tf2_web_republisher
+      - use_rviz:=true
+    networks:
+      - X11
 
-  # gui:
-  #   image: gramaziokohler/novnc:latest
-  #   ports:
-  #     - "8080:8080"
+  gui:
+    image: daricht/ros-noetic-novnc:latest
+    ports:
+      - "8080:8080"
+    networks:
+      - X11
+
+networks:
+  X11:
