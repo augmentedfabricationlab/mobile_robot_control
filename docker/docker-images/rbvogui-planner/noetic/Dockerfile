@@ -5,7 +5,7 @@
 #  docker pull augmentedfabricationlab/ros-abb-fabtory-planner
 
 FROM augmentedfabricationlab/ros-noetic-moveit
-LABEL maintainer "David Richter <david.richter@tum.de>"
+LABEL maintainer "Gido Dielemans <gido.dielemans@tum.de>"
 
 SHELL ["/bin/bash","-c"]
 
@@ -32,8 +32,7 @@ RUN echo "Sourcing.." \
     # && git clone https://github.com/generationrobots-lab/ewellix_tlt.git \
     # && git clone https://github.com/RobotnikAutomation/velodyne_simulator.git \
     && git clone https://github.com/augmentedfabricationlab/robotic_setups_description.git \
-    
-RUN echo "Building tools..." \
+    && echo "Building tools..." \
     # Install dependencies
     && cd $CATKIN_WS \
     && rosdep install -y --from-paths . --ignore-src --rosdistro ${ROS_DISTRO} \
