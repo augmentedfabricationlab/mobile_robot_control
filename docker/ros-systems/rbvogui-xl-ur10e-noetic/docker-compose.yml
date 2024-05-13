@@ -51,7 +51,7 @@ services:
     command:
       - roslaunch
       - --wait
-      - rbvogui_xl_ur20_liftkit_moveit_config
+      - rbvogui_xl_ur10e_liftkit_moveit_config
       - demo.launch
       - use_rviz:=false
 
