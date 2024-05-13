@@ -85,7 +85,7 @@ class MobileRobotClient(object):
         if self.tf_clients.get(reference_frame):
             tf_client = self.tf_clients.get(reference_frame)
             try:
-                tf_client.unsubscribe(target_frame, 0)
+                tf_client.unsubscribe(target_frame, self._receive_tf_frame_callback)
             except TypeError:
                 pass
         

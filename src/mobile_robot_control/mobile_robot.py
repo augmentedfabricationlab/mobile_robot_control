@@ -1,7 +1,8 @@
 from compas_fab.robots import Robot
 
 from compas.geometry import Frame, Point, Vector
-from compas.geometry import Transformation, Translation
+from compas.geometry import Transformation, Translation, Quaternion
+from roslibpy import Message, Topic, Service, tf
 
 __all__ = [
     "MobileRobot"
@@ -67,16 +68,25 @@ class MobileRobot(Robot):
     
     @property
     def RCF(self):
-        # self.mobile_client.tf_subscribe("robot_arm_base", "robot_base_footprint")
-        # # Check the with statement... or if tf service has blocking, use that.
-        # if self.mobile_client.tf_frame is not None:
-        #     self._RCF = self.mobile_client.tf_frame
-        #     self.mobile_client.clean_tf_frame()
-        # self.mobile_client.tf_unsubscribe("robot_arm_base", "robot_base_footprint")
+        if self.mobile_client != None:
+            if self._RCF == None:
+                tf_client = tf.TFClient(self.mobile_client.ros_client, fixed_frame="robot_base_footprint", angular_threshold=0.0, rate=10.0)
+                tf_client.subscribe("robot_arm_base", self._receive_base_frame_callback)
+        return self._RCF
+    
+    def _receive_base_frame_callback(self, message):
+        pose_point = Point(message['translation']['x'], message['translation']['y'], message['translation']['z'])
+        pose_quaternion = Quaternion(message['rotation']['w'], message['rotation']['x'], message['rotation']['y'], message['rotation']['z'])
+        pose_frame = Frame.from_quaternion(pose_quaternion, pose_point)
+        self._RCF = pose_frame
+
+        # if self._RCF == None:
+        #     robot_arm_base_link = self.forward_kinematics(self.zero_configuration(), 'ur10e', True, options={'link':'robot_arm_base_link'})
+        #     self._RCF = Frame(robot_arm_base_link.point, -robot_arm_base_link.xaxis, -robot_arm_base_link.yaxis)
         # if self.wheel_type == "outdoor":
         #     self._RCF = Frame(Point(0.275, 0.0, 1.049 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
         # elif self.wheel_type == "indoor":
-        self._RCF = Frame(Point(0.275, 0.0, 1.021 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0)) 
+        # self._RCF = Frame(Point(0.275, 0.0, 1.021 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0)) 
         return self._RCF
 
     @property 
