@@ -37,6 +37,8 @@ class MobileRobotClient(object):
         self.tf_frame = None
         
         self.marker_frames = {}
+        self.target_marker = None
+
         self.robot_frame = Frame.worldXY()
         
         self.current_joint_values = {}
@@ -74,6 +76,30 @@ class MobileRobotClient(object):
         pose_quaternion = Quaternion(message['rotation']['w'], message['rotation']['x'], message['rotation']['y'], message['rotation']['z'])
         pose_frame = Frame.from_quaternion(pose_quaternion, pose_point)
         self.tf_frame = pose_frame
+
+    def marker_subscribe(self, target_frame, reference_frame):
+        self.target_marker = target_frame
+        if not self.tf_clients.get(reference_frame):
+            tf_client = tf.TFClient(self.ros_client, fixed_frame=reference_frame, angular_threshold=0.0, rate=10.0)
+            self.tf_clients[reference_frame] = tf_client
+        else:
+            tf_client = self.tf_clients.get(reference_frame)
+        tf_client.subscribe(target_frame, self._receive_marker_frame_callback)
+
+    def marker_unsubscribe(self, target_frame, reference_frame):
+        if self.tf_clients.get(reference_frame):
+            tf_client = self.tf_clients.get(reference_frame)
+            tf_client.unsubscribe(target_frame, self._receive_marker_frame_callback)
+
+    def _receive_marker_frame_callback(self, message):
+        """Marker frames are added to the dictionary in reference to RCF."""
+        pose_point = Point(message['translation']['x'], message['translation']['y'], message['translation']['z'])
+        pose_quaternion = Quaternion(message['rotation']['w'], message['rotation']['x'], message['rotation']['y'], message['rotation']['z'])
+        pose_frame = Frame.from_quaternion(pose_quaternion, pose_point)
+        zaxis_pose_frame = Frame(pose_frame.point, Vector.Zaxis(), Vector(pose_frame.yaxis.x, pose_frame.yaxis.y))
+
+        self.marker_frames[self.target_marker] = zaxis_pose_frame
+        print(zaxis_pose_frame)
         
     def clean_tf_frame(self):
         self.tf_frame = None
