@@ -1,8 +1,8 @@
 from fabrication_manager.task import Task
 from ur_fabrication_control.direct_control.fabrication_process import URTask
 from ur_fabrication_control.direct_control.mixins import URScript_AreaGrip
-from compas_ghpython import draw_frame
-from compas_fab.robots import Configuration
+from compas_rhino.conversions import frame_to_rhino_plane
+from compas_robots import Configuration
 from compas.geometry import Frame, Transformation, Point, Vector
 import json
 from pathlib import Path
@@ -78,7 +78,7 @@ class MotionPlanConfigurationTask(Task):
             self.results["configurations"].append(mobile_robot_config)
     
             frame_t = self.robot.forward_kinematics(c, self.group, options=dict(solver='model'))
-            self.results["planes"].append(draw_frame(frame_t.transformed(self.robot.transformation_BCF_WCF())))
+            self.results["planes"].append(frame_to_rhino_plane(frame_t.transformed(self.robot.transformation_BCF_WCF())))
             self.results["positions"].append(c.positions)
             self.results["velocities"].append(c.velocities)
             self.results["accelerations"].append(c.accelerations)
@@ -142,7 +142,7 @@ class MotionPlanFrameTask(Task):
             self.results["configurations"].append(mobile_robot_config)
     
             frame_t = self.robot.forward_kinematics(c, self.group, options=dict(solver='model'))
-            self.results["planes"].append(draw_frame(frame_t.transformed(self.robot.transformation_BCF_WCF())))
+            self.results["planes"].append(frame_to_rhino_plane(frame_t.transformed(self.robot.transformation_BCF_WCF())))
             self.results["positions"].append(c.positions)
             self.results["velocities"].append(c.velocities)
             self.results["accelerations"].append(c.accelerations)
@@ -217,7 +217,7 @@ class MotionPlanFrameTask(Task):
                 self.results["configurations"].append(mobile_robot_config)
         
                 frame_t = self.robot.forward_kinematics(c, self.group, options=dict(solver='model'))
-                self.results["planes"].append(draw_frame(frame_t.transformed(self.robot.transformation_BCF_WCF())))
+                self.results["planes"].append(frame_to_rhino_plane(frame_t.transformed(self.robot.transformation_BCF_WCF())))
                 self.results["positions"].append(c.positions)
                 self.results["velocities"].append(c.velocities)
                 self.results["accelerations"].append(c.accelerations)

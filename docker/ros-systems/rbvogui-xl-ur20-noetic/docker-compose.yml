@@ -24,6 +24,20 @@ services:
       - rosbridge_server
       - rosbridge_websocket.launch
 
+  tf-web-republisher:
+    image: augmentedfabricationlab/rbvogui-planner-noetic:latest
+    container_name: tf-web-republisher
+    environment:
+      - "ROS_HOSTNAME=tf-web-republisher"
+      - "ROS_MASTER_URI=http://ros-master:11311"
+    depends_on:
+      - ros-master
+      - ros-bridge
+    command:
+      - rosrun
+      - tf2_web_republisher
+      - tf2_web_republisher
+
   ros-fileserver:
     image: augmentedfabricationlab/rbvogui-planner-noetic:latest
     container_name: ros-fileserver
@@ -32,6 +46,7 @@ services:
       - ROS_MASTER_URI=http://ros-master:11311
     depends_on:
       - ros-master
+      - ros-bridge
     command:
       - roslaunch
       - --wait

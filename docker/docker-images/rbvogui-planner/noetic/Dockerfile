@@ -32,6 +32,7 @@ RUN echo "Sourcing.." \
     # && git clone https://github.com/generationrobots-lab/ewellix_tlt.git \
     # && git clone https://github.com/RobotnikAutomation/velodyne_simulator.git \
     && git clone https://github.com/augmentedfabricationlab/robotic_setups_description.git \
+    && git clone https://github.com/RobotWebTools/tf2_web_republisher \
     && echo "Building tools..." \
     # Install dependencies
     && cd $CATKIN_WS \
