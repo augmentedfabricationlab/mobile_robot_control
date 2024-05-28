@@ -395,7 +395,7 @@ class SearchAndSaveMarkersTask(Task):
                 
     def run(self, stop_thread):
         self.marker_ids = []
-        Get the marker ids in the scene
+        # Get the marker ids in the scene
         self.robot.mobile_client.topic_subscribe('/tf', 'tf2_msgs/TFMessage', self.receive_marker_ids)
         t0 = time.time()
         while time.time() - t0 < self.duration and not stop_thread():
@@ -405,7 +405,7 @@ class SearchAndSaveMarkersTask(Task):
         time.sleep(1)
         self.log("Length of the list is {}.".format(len(self.marker_ids)))
         
-        Iterate the marker ids.
+        # Iterate the marker ids.
         if len(self.marker_ids) > 0:
             for marker_id in self.marker_ids:
                 next_key = self.fabrication.get_next_task_key()
@@ -440,7 +440,7 @@ class SearchAndSaveRobotPoseInMarkerTask(Task):
                 
     def run(self, stop_thread):
         self.marker_ids = []
-        Get the marker ids in the scene
+        # Get the marker ids in the scene
         self.robot.mobile_client.topic_subscribe('/tf', 'tf2_msgs/TFMessage', self.receive_marker_ids)
         t0 = time.time()
         while time.time() - t0 < self.duration and not stop_thread():
@@ -450,7 +450,7 @@ class SearchAndSaveRobotPoseInMarkerTask(Task):
         time.sleep(1)
         self.log("Length of the list is {}.".format(len(self.marker_ids)))
         
-        Iterate the marker ids.
+        # Iterate the marker ids.
         if len(self.marker_ids) > 0:
             for marker_id in self.marker_ids:
                 next_key = self.fabrication.get_next_task_key()
@@ -478,10 +478,10 @@ class GetRobotPoseInMarkerPoseTask(Task):
             if self.robot.mobile_client.tf_frame is not None:
                 MCF_in_RCF = Frame(self.robot.mobile_client.tf_frame.point, self.robot.mobile_client.tf_frame.zaxis, -self.robot.mobile_client.tf_frame.yaxis)
                 MCF_in_BCF = MCF_in_RCF.transformed(self.robot.transformation_RCF_BCF())
-                BCF_in_MCF = Frame.from_transformation(Transformation.from_frame(MCF_in_BCF).inverted()) Invert
+                BCF_in_MCF = Frame.from_transformation(Transformation.from_frame(MCF_in_BCF).inverted()) # Invert
                 self.log('Robot base frame in reference to {} is {}.'.format(self.marker_id, BCF_in_MCF))
                 
-                Marker frames are added to the dict in WCF.
+                # Marker frames are added to the dict in WCF.
                 self.robot.mobile_client.marker_frames[self.marker_id] = BCF_in_MCF
                 break
         if self.robot.mobile_client.tf_frame is None:
@@ -508,7 +508,7 @@ class GetMarkerPoseTask(Task):
                 MCF_in_RCF = Frame(self.robot.mobile_client.tf_frame.point, self.robot.mobile_client.tf_frame.zaxis, -self.robot.mobile_client.tf_frame.yaxis)
                 MCF_in_BCF = MCF_in_RCF.transformed(self.robot.transformation_RCF_BCF())
                 self.log('{} pose in reference to robot base frame is {}.'.format(self.marker_id, MCF_in_BCF))
-                Marker frames are added to the dict in WCF.
+                # Marker frames are added to the dict in WCF.
                 self.robot.mobile_client.marker_frames[self.marker_id] = MCF_in_BCF
                 break
         if self.robot.mobile_client.tf_frame is None:
@@ -525,7 +525,7 @@ class FixRobotToMarkerTask(Task):
         self.marker_pose = None
 
     def run(self, stop_thread):
-        Get the frame of the fixed marker id.
+        # Get the frame of the fixed marker id.
         self.robot.mobile_client.clean_tf_frame()
         self.robot.mobile_client.tf_subscribe(self.fixed_marker_id, "robot_arm_base")
         t0 = time.time()
@@ -539,15 +539,15 @@ class FixRobotToMarkerTask(Task):
             self.log('For {}, could not get the frame.'.format(self.fixed_marker_id))
         self.robot.mobile_client.tf_unsubscribe(self.fixed_marker_id, "robot_arm_base")
         
-        Fix the robot to the marker pose
+        # Fix the robot to the marker pose
         if self.marker_pose is not None:
-            MCF_in_RCF = self.marker_pose marker frame in RCF
-            MCF_in_BCF = MCF_in_RCF.transformed(self.robot.transformation_RCF_BCF()) marker frame in BCF
-            BCF_in_MCF = Frame.from_transformation(Transformation.from_frame(MCF_in_BCF).inverted()) BCF in measured MCF
-            MCF_in_WCF = self.robot.mobile_client.marker_frames[self.fixed_marker_id] marker frame in WCF
-            from_MCF_to_WCF = Transformation.from_change_of_basis(MCF_in_WCF, Frame.worldXY()) T from fixed MCF to WCF
+            MCF_in_RCF = self.marker_pose # marker frame in RCF
+            MCF_in_BCF = MCF_in_RCF.transformed(self.robot.transformation_RCF_BCF()) # marker frame in BCF
+            BCF_in_MCF = Frame.from_transformation(Transformation.from_frame(MCF_in_BCF).inverted()) # BCF in measured MCF
+            MCF_in_WCF = self.robot.mobile_client.marker_frames[self.fixed_marker_id] # marker frame in WCF
+            from_MCF_to_WCF = Transformation.from_change_of_basis(MCF_in_WCF, Frame.worldXY()) # T from fixed MCF to WCF
             
-            BCF_in_WCF = BCF_in_MCF.transformed(from_MCF_to_WCF) BCF in WCF
+            BCF_in_WCF = BCF_in_MCF.transformed(from_MCF_to_WCF) # BCF in WCF
         
             self.robot.BCF = BCF_in_WCF
             self.log("Robot is fixed to {}.".format(self.fixed_marker_id))
