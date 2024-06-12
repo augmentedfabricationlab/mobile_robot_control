@@ -48,7 +48,7 @@ class MobileRobotClient(object):
     def connect(self):
         """_summary_"""
         self.ros_client.run()
-        print("Is ROS connected? ", self.ros_client.is_connected)
+        print('Is ROS connected? ', self.ros_client.is_connected)
 
     def disconnect(self):
         """_summary_"""
