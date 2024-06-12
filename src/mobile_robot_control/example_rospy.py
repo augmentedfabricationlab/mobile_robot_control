@@ -150,7 +150,7 @@
 
 #         i = 0
 #         # loop to publish the velocity estimate, current_distance = velocity * (t1 - t0)
-        
+
 #         while (i <= time):
 
 #             # Publish the velocity
@@ -199,7 +199,7 @@
 
 #         # Track the last angle measured
 #         last_angle = rotation
-        
+
 #         # Track how far we have turned
 #         turn_angle = 0
 
@@ -207,25 +207,25 @@
 
 #         # Begin the rotation
 #         while abs(turn_angle + self.angular_tolerance) < abs(goal_angle) and not rospy.is_shutdown():
-#             # Publish the Twist message and sleep 1 cycle         
-#             self.vel_publisher.publish(self.cmd) 
+#             # Publish the Twist message and sleep 1 cycle
+#             self.vel_publisher.publish(self.cmd)
 #             self.rate.sleep()
-            
+
 #             # Get the current rotation
 #             (position, rotation) = self.get_odom()
-            
+
 #             # Compute the amount of rotation since the last lopp
 #             delta_angle = self.normalize_angle(rotation - last_angle)
-            
+
 #             turn_angle += delta_angle
 #             last_angle = rotation
-        
+
 #         self.stop_robot()
 
 #     def quat_to_angle(self, quat):
 #         rot = PyKDL.Rotation.Quaternion(quat.x, quat.y, quat.z, quat.w)
 #         return rot.GetRPY()[2]
-        
+
 #     def normalize_angle(self, angle):
 #         res = angle
 #         while res > pi:

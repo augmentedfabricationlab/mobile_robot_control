@@ -7,4 +7,13 @@ __author_email__ = 'gido.dielemans@tum.de'
 __license__ = 'MIT license'
 __copyright__ = 'Copyright 2020 TUM Professorship Digital Fabrication'
 
-__all__ = ['__author__', '__author_email__', '__copyright__', '__description__', '__license__', '__title__', '__url__', '__version__']
+__all__ = [
+    '__author__',
+    '__author_email__',
+    '__copyright__',
+    '__description__',
+    '__license__',
+    '__title__',
+    '__url__',
+    '__version__',
+]
