@@ -3,40 +3,38 @@ from ur_fabrication_control.direct_control.fabrication_process import URTask
 from ur_fabrication_control.direct_control.mixins import URScript_AreaGrip
 from compas_ghpython import draw_frame
 from compas_fab.robots import Configuration
-from compas.geometry import Frame, Transformation, Point, Vector
+from compas.geometry import Frame, Transformation
 import json
-from pathlib import Path
 
 import time
 import math
 
 __all__ = [
-    "MoveJointsTask",
-    "MoveLinearTask",
-    "MotionPlanConfigurationTask",
-    "MotionPlanFrameTask",
-    "InverseKinematicsTask",
-    "GetConfigurationTask",
-    "SearchAndSaveMarkersTask",
-    "GetMarkerPoseTask",
-    "FixRobotToMarkerTask",
+    'MoveJointsTask',
+    'MoveLinearTask',
+    'MotionPlanConfigurationTask',
+    'MotionPlanFrameTask',
+    'InverseKinematicsTask',
+    'GetConfigurationTask',
+    'SearchAndSaveMarkersTask',
+    'GetMarkerPoseTask',
+    'FixRobotToMarkerTask',
 ]
 
-##Moveit tasks ###
 
-
+### Moveit tasks ###
 class MotionPlanConfigurationTask(Task):
     def __init__(
         self,
         robot,
         target_configuration,
         start_configuration,
-        group="ur10e",
+        group='ur10e',
         tolerance_above=[math.radians(1)] * 6,
         tolerance_below=[math.radians(1)] * 6,
         attached_collision_meshes=None,
         path_constraints=None,
-        planner_id="RRTConnect",
+        planner_id='RRTConnect',
         key=None,
     ):
         super(MotionPlanConfigurationTask, self).__init__(key)
@@ -54,11 +52,11 @@ class MotionPlanConfigurationTask(Task):
 
         self.trajectory = None
         self.results = {
-            "configurations": [],
-            "planes": [],
-            "positions": [],
-            "velocities": [],
-            "accelerations": [],
+            'configurations': [],
+            'planes': [],
+            'positions': [],
+            'velocities': [],
+            'accelerations': [],
         }
 
     def run(self, stop_thread):
@@ -69,7 +67,7 @@ class MotionPlanConfigurationTask(Task):
             group=self.group,
         )
 
-        self.log("Planning trajectory...")
+        self.log('Planning trajectory...')
         self.trajectory = self.robot.plan_motion(
             goal_constraints,
             start_configuration=self.start_configuration,
@@ -86,20 +84,20 @@ class MotionPlanConfigurationTask(Task):
                 break
             time.sleep(0.1)
 
-        self.log("Trajectory found at {}.".format(self.trajectory))
+        self.log('Trajectory found at {}.'.format(self.trajectory))
 
         for c in self.trajectory.points:
             config = self.robot.merge_group_with_full_configuration(
                 c, self.trajectory.start_configuration, self.group
             )
             joint_names_ordered = [
-                "robot_ewellix_lift_top_joint",
-                "robot_arm_shoulder_pan_joint",
-                "robot_arm_shoulder_lift_joint",
-                "robot_arm_elbow_joint",
-                "robot_arm_wrist_1_joint",
-                "robot_arm_wrist_2_joint",
-                "robot_arm_wrist_3_joint",
+                'robot_ewellix_lift_top_joint',
+                'robot_arm_shoulder_pan_joint',
+                'robot_arm_shoulder_lift_joint',
+                'robot_arm_elbow_joint',
+                'robot_arm_wrist_1_joint',
+                'robot_arm_wrist_2_joint',
+                'robot_arm_wrist_3_joint',
             ]
             joint_values_ordered = [
                 config.joint_values[config.joint_names.index(joint_name)]
@@ -112,17 +110,17 @@ class MotionPlanConfigurationTask(Task):
             mobile_robot_config = Configuration(
                 joint_values_ordered, joint_types_ordered, joint_names_ordered
             )
-            self.results["configurations"].append(mobile_robot_config)
+            self.results['configurations'].append(mobile_robot_config)
 
             frame_t = self.robot.forward_kinematics(
-                c, self.group, options=dict(solver="model")
+                c, self.group, options=dict(solver='model')
             )
-            self.results["planes"].append(
+            self.results['planes'].append(
                 draw_frame(frame_t.transformed(self.robot.transformation_BCF_WCF()))
             )
-            self.results["positions"].append(c.positions)
-            self.results["velocities"].append(c.velocities)
-            self.results["accelerations"].append(c.accelerations)
+            self.results['positions'].append(c.positions)
+            self.results['velocities'].append(c.velocities)
+            self.results['accelerations'].append(c.accelerations)
 
         self.is_completed = True
         return True
@@ -134,14 +132,14 @@ class MotionPlanFrameTask(Task):
         robot,
         frame_WCF,
         start_configuration,
-        group="ur10e",
+        group='ur10e',
         tolerance_position=0.001,
         tolerance_xaxis=1.0,
         tolerance_yaxis=1.0,
         tolerance_zaxis=1.0,
         attached_collision_meshes=None,
         path_constraints=None,
-        planner_id="RRTConnect",
+        planner_id='RRTConnect',
         key=None,
     ):
         super(MotionPlanFrameTask, self).__init__(key)
@@ -161,11 +159,11 @@ class MotionPlanFrameTask(Task):
 
         self.trajectory = None
         self.results = {
-            "configurations": [],
-            "planes": [],
-            "positions": [],
-            "velocities": [],
-            "accelerations": [],
+            'configurations': [],
+            'planes': [],
+            'positions': [],
+            'velocities': [],
+            'accelerations': [],
         }
 
         self.approved = False
@@ -192,14 +190,14 @@ class MotionPlanFrameTask(Task):
             self.replan = False
             self.trajectory = None
             self.results = {
-                "configurations": [],
-                "planes": [],
-                "positions": [],
-                "velocities": [],
-                "accelerations": [],
+                'configurations': [],
+                'planes': [],
+                'positions': [],
+                'velocities': [],
+                'accelerations': [],
             }
 
-            self.log("Planning trajectory...")
+            self.log('Planning trajectory...')
             self.trajectory = self.robot.plan_motion(
                 goal_constraints,
                 start_configuration=self.start_configuration,
@@ -216,20 +214,20 @@ class MotionPlanFrameTask(Task):
                     break
                 time.sleep(0.1)
 
-            self.log("Trajectory found at {}.".format(self.trajectory))
+            self.log('Trajectory found at {}.'.format(self.trajectory))
 
             for c in self.trajectory.points:
                 config = self.robot.merge_group_with_full_configuration(
                     c, self.trajectory.start_configuration, self.group
                 )
                 joint_names_ordered = [
-                    "robot_ewellix_lift_top_joint",
-                    "robot_arm_shoulder_pan_joint",
-                    "robot_arm_shoulder_lift_joint",
-                    "robot_arm_elbow_joint",
-                    "robot_arm_wrist_1_joint",
-                    "robot_arm_wrist_2_joint",
-                    "robot_arm_wrist_3_joint",
+                    'robot_ewellix_lift_top_joint',
+                    'robot_arm_shoulder_pan_joint',
+                    'robot_arm_shoulder_lift_joint',
+                    'robot_arm_elbow_joint',
+                    'robot_arm_wrist_1_joint',
+                    'robot_arm_wrist_2_joint',
+                    'robot_arm_wrist_3_joint',
                 ]
                 joint_values_ordered = [
                     config.joint_values[config.joint_names.index(joint_name)]
@@ -242,23 +240,23 @@ class MotionPlanFrameTask(Task):
                 mobile_robot_config = Configuration(
                     joint_values_ordered, joint_types_ordered, joint_names_ordered
                 )
-                self.results["configurations"].append(mobile_robot_config)
+                self.results['configurations'].append(mobile_robot_config)
 
                 frame_t = self.robot.forward_kinematics(
-                    c, self.group, options=dict(solver="model")
+                    c, self.group, options=dict(solver='model')
                 )
-                self.results["planes"].append(
+                self.results['planes'].append(
                     draw_frame(frame_t.transformed(self.robot.transformation_BCF_WCF()))
                 )
-                self.results["positions"].append(c.positions)
-                self.results["velocities"].append(c.velocities)
-                self.results["accelerations"].append(c.accelerations)
+                self.results['positions'].append(c.positions)
+                self.results['velocities'].append(c.velocities)
+                self.results['accelerations'].append(c.accelerations)
 
             while not stop_thread():
                 time.sleep(0.1)
-                if self.approved == True or self.replan == True:
+                if self.approved is True or self.replan is True:
                     break
-            if self.approved == True:
+            if self.approved is True:
                 break
             time.sleep(0.1)
 
@@ -272,7 +270,7 @@ class InverseKinematicsTask(Task):
         robot,
         frame_WCF,
         start_configuration,
-        group="ur10e",
+        group='ur10e',
         json_path=None,
         key=None,
     ):
@@ -287,7 +285,7 @@ class InverseKinematicsTask(Task):
     def run(self, stop_thread):
         frame_BCF = self.frame_WCF.transformed(self.robot.transformation_WCF_BCF())
 
-        self.log("Computing inverse kinematics...")
+        self.log('Computing inverse kinematics...')
         self.configuration = self.robot.inverse_kinematics(
             frame_BCF, self.start_configuration, self.group
         )
@@ -297,12 +295,12 @@ class InverseKinematicsTask(Task):
                 break
             time.sleep(0.1)
 
-        self.log("Configuration found at {}.".format(self.configuration))
-        filename = "Task_{}.json".format(self.key)
+        self.log('Configuration found at {}.'.format(self.configuration))
+        filename = 'Task_{}.json'.format(self.key)
         filepath = self.path / filename
         json_data = json.dumps(self.configuration.to_data())
 
-        with open(filepath, "w") as f:
+        with open(filepath, 'w') as f:
             f.write(json_data)
 
         self.is_completed = True
@@ -316,17 +314,17 @@ class GetConfigurationTask(Task):
         self.configuration = None
 
     def run(self, stop_thread):
-        self.log("Waiting for current configuration...")
+        self.log('Waiting for current configuration...')
         current_joint_values = self.robot.mobile_client.current_joint_values
 
         joint_names_ordered = [
-            "robot_ewellix_top_lift_joint",
-            "robot_arm_shoulder_pan_joint",
-            "robot_arm_shoulder_lift_joint",
-            "robot_arm_elbow_joint",
-            "robot_arm_wrist_1_joint",
-            "robot_arm_wrist_2_joint",
-            "robot_arm_wrist_3_joint",
+            'robot_ewellix_top_lift_joint',
+            'robot_arm_shoulder_pan_joint',
+            'robot_arm_shoulder_lift_joint',
+            'robot_arm_elbow_joint',
+            'robot_arm_wrist_1_joint',
+            'robot_arm_wrist_2_joint',
+            'robot_arm_wrist_3_joint',
         ]
         joint_values_ordered = [
             current_joint_values.get(joint_name, 0.00000)
@@ -335,13 +333,13 @@ class GetConfigurationTask(Task):
         joint_types_ordered = [2, 0, 0, 0, 0, 0, 0]
         self.configuration = Configuration(joint_values_ordered, joint_types_ordered)
 
-        self.log("Current configuration is: {}".format(self.configuration))
+        self.log('Current configuration is: {}'.format(self.configuration))
 
         self.is_completed = True
         return True
 
 
-##UR direct tasks ###
+### UR direct tasks ###
 
 
 class MoveJointsTask(URTask):
@@ -390,7 +388,7 @@ class MoveJointsTask(URTask):
 
         self.urscript.end()
         self.urscript.generate()
-        self.log("Going to set configuration.")
+        self.log('Going to set configuration.')
 
     def run(self, stop_thread):
         self.create_urscript()
@@ -450,14 +448,14 @@ class MoveLinearTask(URTask):
 
         self.urscript.end()
         self.urscript.generate()
-        self.log("Going to frame.")
+        self.log('Going to frame.')
 
     def run(self, stop_thread):
         self.create_urscript()
         super(MoveLinearTask, self).run(stop_thread)
 
 
-##Marker related tasks ###
+### Marker related tasks ###
 
 
 class SearchAndSaveMarkersTask(Task):
@@ -473,11 +471,11 @@ class SearchAndSaveMarkersTask(Task):
         self.marker_ids = []
 
     def receive_marker_ids(self, message):
-        msg = message.get("transforms")[0]
-        if msg.get("header").get("frame_id") == "camera_color_optical_frame":
-            marker_id = msg.get("child_frame_id")
+        msg = message.get('transforms')[0]
+        if msg.get('header').get('frame_id') == 'camera_color_optical_frame':
+            marker_id = msg.get('child_frame_id')
             if marker_id not in self.marker_ids:
-                self.log("Found marker with ID: {}".format(marker_id))
+                self.log('Found marker with ID: {}'.format(marker_id))
                 if (self.update) or (
                     not self.update
                     and not self.robot.mobile_client.marker_frames.get(marker_id)
@@ -485,7 +483,7 @@ class SearchAndSaveMarkersTask(Task):
                     self.marker_ids.append(marker_id)
                 else:
                     self.log(
-                        "Ignoring {}, as it is already recorded in the marker dictionary and update is set to False.".format(
+                        'Ignoring {}, as it is already recorded in the marker dictionary and update is set to False.'.format(
                             marker_id
                         )
                     )
@@ -494,15 +492,15 @@ class SearchAndSaveMarkersTask(Task):
         self.marker_ids = []
         # Get the marker ids in the scene
         self.robot.mobile_client.topic_subscribe(
-            "/tf", "tf2_msgs/TFMessage", self.receive_marker_ids
+            '/tf', 'tf2_msgs/TFMessage', self.receive_marker_ids
         )
         t0 = time.time()
         while time.time() - t0 < self.duration and not stop_thread():
             time.sleep(0.1)
-        self.robot.mobile_client.topic_unsubscribe("/tf")
-        self.log("Got all the visible marker ids.")
+        self.robot.mobile_client.topic_unsubscribe('/tf')
+        self.log('Got all the visible marker ids.')
         time.sleep(1)
-        self.log("Length of the list is {}.".format(len(self.marker_ids)))
+        self.log('Length of the list is {}.'.format(len(self.marker_ids)))
 
         # Iterate the marker ids.
         if len(self.marker_ids) > 0:
@@ -511,12 +509,12 @@ class SearchAndSaveMarkersTask(Task):
                 task = GetMarkerPoseTask(
                     self.robot,
                     marker_id=marker_id,
-                    reference_frame_id="robot_arm_base",
+                    reference_frame_id='robot_arm_base',
                     key=next_key,
                 )
                 self.fabrication.add_task(task, key=next_key)
         else:
-            self.log("No more markers are visible.")
+            self.log('No more markers are visible.')
 
         self.is_completed = True
         return True
@@ -535,11 +533,11 @@ class SearchAndSaveRobotPoseInMarkerTask(Task):
         self.marker_ids = []
 
     def receive_marker_ids(self, message):
-        msg = message.get("transforms")[0]
-        if msg.get("header").get("frame_id") == "camera_color_optical_frame":
-            marker_id = msg.get("child_frame_id")
+        msg = message.get('transforms')[0]
+        if msg.get('header').get('frame_id') == 'camera_color_optical_frame':
+            marker_id = msg.get('child_frame_id')
             if marker_id not in self.marker_ids:
-                self.log("Found marker with ID: {}".format(marker_id))
+                self.log('Found marker with ID: {}'.format(marker_id))
                 if (self.update) or (
                     not self.update
                     and not self.robot.mobile_client.marker_frames.get(marker_id)
@@ -547,7 +545,7 @@ class SearchAndSaveRobotPoseInMarkerTask(Task):
                     self.marker_ids.append(marker_id)
                 else:
                     self.log(
-                        "Ignoring {}, as it is already recorded in the marker dictionary and update is set to False.".format(
+                        'Ignoring {}, as it is already recorded in the marker dictionary and update is set to False.'.format(
                             marker_id
                         )
                     )
@@ -556,15 +554,15 @@ class SearchAndSaveRobotPoseInMarkerTask(Task):
         self.marker_ids = []
         # Get the marker ids in the scene
         self.robot.mobile_client.topic_subscribe(
-            "/tf", "tf2_msgs/TFMessage", self.receive_marker_ids
+            '/tf', 'tf2_msgs/TFMessage', self.receive_marker_ids
         )
         t0 = time.time()
         while time.time() - t0 < self.duration and not stop_thread():
             time.sleep(0.1)
-        self.robot.mobile_client.topic_unsubscribe("/tf")
-        self.log("Got all the visible marker ids.")
+        self.robot.mobile_client.topic_unsubscribe('/tf')
+        self.log('Got all the visible marker ids.')
         time.sleep(1)
-        self.log("Length of the list is {}.".format(len(self.marker_ids)))
+        self.log('Length of the list is {}.'.format(len(self.marker_ids)))
 
         # Iterate the marker ids.
         if len(self.marker_ids) > 0:
@@ -573,12 +571,12 @@ class SearchAndSaveRobotPoseInMarkerTask(Task):
                 task = GetRobotPoseInMarkerPoseTask(
                     self.robot,
                     marker_id=marker_id,
-                    reference_frame_id="robot_arm_base",
+                    reference_frame_id='robot_arm_base',
                     key=next_key,
                 )
                 self.fabrication.add_task(task, key=next_key)
         else:
-            self.log("No more markers are visible.")
+            self.log('No more markers are visible.')
 
         self.is_completed = True
         return True
@@ -586,7 +584,7 @@ class SearchAndSaveRobotPoseInMarkerTask(Task):
 
 class GetRobotPoseInMarkerPoseTask(Task):
     def __init__(
-        self, robot, marker_id="marker_0", reference_frame_id="robot_arm_base", key=None
+        self, robot, marker_id='marker_0', reference_frame_id='robot_arm_base', key=None
     ):
         super(GetRobotPoseInMarkerPoseTask, self).__init__(key)
         self.robot = robot
@@ -612,7 +610,7 @@ class GetRobotPoseInMarkerPoseTask(Task):
                     Transformation.from_frame(MCF_in_BCF).inverted()
                 )  # Invert
                 self.log(
-                    "Robot base frame in reference to {} is {}.".format(
+                    'Robot base frame in reference to {} is {}.'.format(
                         self.marker_id, BCF_in_MCF
                     )
                 )
@@ -621,7 +619,7 @@ class GetRobotPoseInMarkerPoseTask(Task):
                 self.robot.mobile_client.marker_frames[self.marker_id] = BCF_in_MCF
                 break
         if self.robot.mobile_client.tf_frame is None:
-            self.log("For {}, could not get the frame.".format(self.marker_id))
+            self.log('For {}, could not get the frame.'.format(self.marker_id))
         self.robot.mobile_client.tf_unsubscribe(self.marker_id, self.reference_frame_id)
         self.is_completed = True
         return True
@@ -629,7 +627,7 @@ class GetRobotPoseInMarkerPoseTask(Task):
 
 class GetMarkerPoseTask(Task):
     def __init__(
-        self, robot, marker_id="marker_0", reference_frame_id="robot_arm_base", key=None
+        self, robot, marker_id='marker_0', reference_frame_id='robot_arm_base', key=None
     ):
         super(GetMarkerPoseTask, self).__init__(key)
         self.robot = robot
@@ -653,7 +651,7 @@ class GetMarkerPoseTask(Task):
                 )
                 MCF_in_BCF = MCF_in_RCF.transformed(self.robot.transformation_RCF_BCF())
                 self.log(
-                    "{} pose in reference to robot base frame is {}.".format(
+                    '{} pose in reference to robot base frame is {}.'.format(
                         self.marker_id, MCF_in_BCF
                     )
                 )
@@ -661,14 +659,14 @@ class GetMarkerPoseTask(Task):
                 self.robot.mobile_client.marker_frames[self.marker_id] = MCF_in_BCF
                 break
         if self.robot.mobile_client.tf_frame is None:
-            self.log("For {}, could not get the frame.".format(self.marker_id))
+            self.log('For {}, could not get the frame.'.format(self.marker_id))
         self.robot.mobile_client.tf_unsubscribe(self.marker_id, self.reference_frame_id)
         self.is_completed = True
         return True
 
 
 class FixRobotToMarkerTask(Task):
-    def __init__(self, robot, fixed_marker_id="marker_0", key=None):
+    def __init__(self, robot, fixed_marker_id='marker_0', key=None):
         super(FixRobotToMarkerTask, self).__init__(key)
         self.robot = robot
         self.fixed_marker_id = fixed_marker_id
@@ -677,7 +675,7 @@ class FixRobotToMarkerTask(Task):
     def run(self, stop_thread):
         # Get the frame of the fixed marker id.
         self.robot.mobile_client.clean_tf_frame()
-        self.robot.mobile_client.tf_subscribe(self.fixed_marker_id, "robot_arm_base")
+        self.robot.mobile_client.tf_subscribe(self.fixed_marker_id, 'robot_arm_base')
         t0 = time.time()
         while (
             time.time() - t0 < 20 and not stop_thread()
@@ -685,15 +683,15 @@ class FixRobotToMarkerTask(Task):
             time.sleep(0.1)
             if self.robot.mobile_client.tf_frame is not None:
                 self.log(
-                    "For {}, got the frame: {}".format(
+                    'For {}, got the frame: {}'.format(
                         self.fixed_marker_id, self.robot.mobile_client.tf_frame
                     )
                 )
                 self.marker_pose = self.robot.mobile_client.tf_frame
                 break
         if self.robot.mobile_client.tf_frame is None:
-            self.log("For {}, could not get the frame.".format(self.fixed_marker_id))
-        self.robot.mobile_client.tf_unsubscribe(self.fixed_marker_id, "robot_arm_base")
+            self.log('For {}, could not get the frame.'.format(self.fixed_marker_id))
+        self.robot.mobile_client.tf_unsubscribe(self.fixed_marker_id, 'robot_arm_base')
 
         # Fix the robot to the marker pose
         if self.marker_pose is not None:
@@ -714,13 +712,13 @@ class FixRobotToMarkerTask(Task):
             BCF_in_WCF = BCF_in_MCF.transformed(from_MCF_to_WCF)  # BCF in WCF
 
             self.robot.BCF = BCF_in_WCF
-            self.log("Robot is fixed to {}.".format(self.fixed_marker_id))
+            self.log('Robot is fixed to {}.'.format(self.fixed_marker_id))
         else:
-            self.log("Fixed marker frame is not retrieved.")
+            self.log('Fixed marker frame is not retrieved.')
 
         self.is_completed = True
         return True
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     pass
