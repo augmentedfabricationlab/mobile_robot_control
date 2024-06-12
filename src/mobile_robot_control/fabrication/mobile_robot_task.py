@@ -87,43 +87,86 @@ class MotionPlanConfigurationTask(Task):
         self.log('Trajectory found at {}.'.format(self.trajectory))
 
         for c in self.trajectory.points:
-            config = self.robot.merge_group_with_full_configuration(c, self.trajectory.start_configuration, self.group)
-            joint_names_ordered = ['robot_ewellix_lift_top_joint', 'robot_arm_shoulder_pan_joint', 'robot_arm_shoulder_lift_joint', 'robot_arm_elbow_joint', 'robot_arm_wrist_1_joint', 'robot_arm_wrist_2_joint', 'robot_arm_wrist_3_joint']
-            joint_values_ordered = [config.joint_values[config.joint_names.index(joint_name)] for joint_name in joint_names_ordered]
-            joint_types_ordered = [config.joint_types[config.joint_names.index(joint_name)] for joint_name in joint_names_ordered]
-            mobile_robot_config = Configuration(joint_values_ordered, joint_types_ordered, joint_names_ordered)
-            self.results["configurations"].append(mobile_robot_config)
-    
-            frame_t = self.robot.forward_kinematics(c, self.group, options=dict(solver='model'))
-            self.results["planes"].append(frame_to_rhino_plane(frame_t.transformed(self.robot.transformation_BCF_WCF())))
-            self.results["positions"].append(c.positions)
-            self.results["velocities"].append(c.velocities)
-            self.results["accelerations"].append(c.accelerations)
-        
+            config = self.robot.merge_group_with_full_configuration(
+                c, self.trajectory.start_configuration, self.group
+            )
+            joint_names_ordered = [
+                'robot_ewellix_lift_top_joint',
+                'robot_arm_shoulder_pan_joint',
+                'robot_arm_shoulder_lift_joint',
+                'robot_arm_elbow_joint',
+                'robot_arm_wrist_1_joint',
+                'robot_arm_wrist_2_joint',
+                'robot_arm_wrist_3_joint',
+            ]
+            joint_values_ordered = [
+                config.joint_values[config.joint_names.index(joint_name)]
+                for joint_name in joint_names_ordered
+            ]
+            joint_types_ordered = [
+                config.joint_types[config.joint_names.index(joint_name)]
+                for joint_name in joint_names_ordered
+            ]
+            mobile_robot_config = Configuration(
+                joint_values_ordered, joint_types_ordered, joint_names_ordered
+            )
+            self.results['configurations'].append(mobile_robot_config)
+
+            frame_t = self.robot.forward_kinematics(
+                c, self.group, options=dict(solver='model')
+            )
+            self.results['planes'].append(
+                frame_to_rhino_plane(
+                    frame_t.transformed(self.robot.transformation_BCF_WCF())
+                )
+            )
+            self.results['positions'].append(c.positions)
+            self.results['velocities'].append(c.velocities)
+            self.results['accelerations'].append(c.accelerations)
+
         self.is_completed = True
         return True
 
+
 class MotionPlanFrameTask(Task):
-    def __init__(self, robot, frame_WCF, start_configuration, group='ur10e', 
-                 tolerance_position=0.001, tolerance_xaxis=1.0, tolerance_yaxis=1.0, tolerance_zaxis=1.0, 
-                 attached_collision_meshes=None, path_constraints=None, planner_id='RRTConnect', key=None):
+    def __init__(
+        self,
+        robot,
+        frame_WCF,
+        start_configuration,
+        group='ur10e',
+        tolerance_position=0.001,
+        tolerance_xaxis=1.0,
+        tolerance_yaxis=1.0,
+        tolerance_zaxis=1.0,
+        attached_collision_meshes=None,
+        path_constraints=None,
+        planner_id='RRTConnect',
+        key=None,
+    ):
         super(MotionPlanFrameTask, self).__init__(key)
         self.robot = robot
         self.group = group
         self.frame_WCF = frame_WCF
         self.start_configuration = start_configuration
-        
-        self.tolerance_position = tolerance_position 
+
+        self.tolerance_position = tolerance_position
         self.tolerance_xaxis = tolerance_xaxis
-        self.tolerance_yaxis = tolerance_yaxis 
+        self.tolerance_yaxis = tolerance_yaxis
         self.tolerance_zaxis = tolerance_zaxis
-        
+
         self.path_constraints = path_constraints
-        self.attached_collision_meshes = attached_collision_meshes 
+        self.attached_collision_meshes = attached_collision_meshes
         self.planner_id = planner_id
-        
+
         self.trajectory = None
-        self.results = {"configurations" : [], "planes" : [], "positions" : [], "velocities" : [], "accelerations" : []}
+        self.results = {
+            'configurations': [],
+            'planes': [],
+            'positions': [],
+            'velocities': [],
+            'accelerations': [],
+        }
 
     def run(self, stop_thread):
         goal_constraints = self.robot.constraints_from_configuration(
@@ -131,39 +174,65 @@ class MotionPlanFrameTask(Task):
             tolerances_above=self.tolerance_above,
             tolerances_below=self.tolerance_below,
             group=self.group,
-            )
+        )
 
-        self.log("Planning trajectory...")
-        self.trajectory = self.robot.plan_motion(goal_constraints,
-                                    start_configuration=self.start_configuration,
-                                    group=self.group,
-                                    options=dict(
-                                        attached_collision_meshes=self.attached_collision_meshes,
-                                        path_constraints=self.path_constraints,
-                                        planner_id=self.planner_id,
-                                    ))
-        
+        self.log('Planning trajectory...')
+        self.trajectory = self.robot.plan_motion(
+            goal_constraints,
+            start_configuration=self.start_configuration,
+            group=self.group,
+            options=dict(
+                attached_collision_meshes=self.attached_collision_meshes,
+                path_constraints=self.path_constraints,
+                planner_id=self.planner_id,
+            ),
+        )
+
         while not stop_thread():
             if self.trajectory is not None:
                 break
             time.sleep(0.1)
-        
+
         self.log('Trajectory found at {}.'.format(self.trajectory))
-        
+
         for c in self.trajectory.points:
-            config = self.robot.merge_group_with_full_configuration(c, self.trajectory.start_configuration, self.group)
-            joint_names_ordered = ['robot_ewellix_lift_top_joint', 'robot_arm_shoulder_pan_joint', 'robot_arm_shoulder_lift_joint', 'robot_arm_elbow_joint', 'robot_arm_wrist_1_joint', 'robot_arm_wrist_2_joint', 'robot_arm_wrist_3_joint']
-            joint_values_ordered = [config.joint_values[config.joint_names.index(joint_name)] for joint_name in joint_names_ordered]
-            joint_types_ordered = [config.joint_types[config.joint_names.index(joint_name)] for joint_name in joint_names_ordered]
-            mobile_robot_config = Configuration(joint_values_ordered, joint_types_ordered, joint_names_ordered)
-            self.results["configurations"].append(mobile_robot_config)
-    
-            frame_t = self.robot.forward_kinematics(c, self.group, options=dict(solver='model'))
-            self.results["planes"].append(frame_to_rhino_plane(frame_t.transformed(self.robot.transformation_BCF_WCF())))
-            self.results["positions"].append(c.positions)
-            self.results["velocities"].append(c.velocities)
-            self.results["accelerations"].append(c.accelerations)
-        
+            config = self.robot.merge_group_with_full_configuration(
+                c, self.trajectory.start_configuration, self.group
+            )
+            joint_names_ordered = [
+                'robot_ewellix_lift_top_joint',
+                'robot_arm_shoulder_pan_joint',
+                'robot_arm_shoulder_lift_joint',
+                'robot_arm_elbow_joint',
+                'robot_arm_wrist_1_joint',
+                'robot_arm_wrist_2_joint',
+                'robot_arm_wrist_3_joint',
+            ]
+            joint_values_ordered = [
+                config.joint_values[config.joint_names.index(joint_name)]
+                for joint_name in joint_names_ordered
+            ]
+            joint_types_ordered = [
+                config.joint_types[config.joint_names.index(joint_name)]
+                for joint_name in joint_names_ordered
+            ]
+            mobile_robot_config = Configuration(
+                joint_values_ordered, joint_types_ordered, joint_names_ordered
+            )
+            self.results['configurations'].append(mobile_robot_config)
+
+            frame_t = self.robot.forward_kinematics(
+                c, self.group, options=dict(solver='model')
+            )
+            self.results['planes'].append(
+                frame_to_rhino_plane(
+                    frame_t.transformed(self.robot.transformation_BCF_WCF())
+                )
+            )
+            self.results['positions'].append(c.positions)
+            self.results['velocities'].append(c.velocities)
+            self.results['accelerations'].append(c.accelerations)
+
         self.is_completed = True
         return True
 
@@ -288,7 +357,9 @@ class MotionPlanFrameTask(Task):
                     c, self.group, options=dict(solver='model')
                 )
                 self.results['planes'].append(
-                    frame_to_rhino_plane(frame_t.transformed(self.robot.transformation_BCF_WCF()))
+                    frame_to_rhino_plane(
+                        frame_t.transformed(self.robot.transformation_BCF_WCF())
+                    )
                 )
                 self.results['positions'].append(c.positions)
                 self.results['velocities'].append(c.velocities)
