@@ -44,6 +44,7 @@ zip-safe = false
 
 [tool.ruff]
 indent-width = 4
+line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
@@ -57,4 +58,3 @@ max-doc-length = 179
 [tool.ruff.format]
 docstring-code-format = true
 docstring-code-line-length = "dynamic"
-quote-style = "single"
