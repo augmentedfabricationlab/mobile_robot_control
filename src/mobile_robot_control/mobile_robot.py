@@ -4,7 +4,7 @@ from compas.geometry import Frame, Point, Vector
 from compas.geometry import Transformation, Translation, Quaternion
 from roslibpy import Message, Topic, Service, tf
 
-__all__ = ['MobileRobot']
+__all__ = ["MobileRobot"]
 
 
 class MobileRobot(Robot):
@@ -32,7 +32,7 @@ class MobileRobot(Robot):
         self.client = client
         self.mobile_client = mobile_client
         self.attributes = {}
-        self._current_ik = {'request_id': None, 'solutions': None}
+        self._current_ik = {"request_id": None, "solutions": None}
 
         self._lift_height = 0  # lift height
 
@@ -74,28 +74,28 @@ class MobileRobot(Robot):
 
     @property
     def RCF(self):
-        if self.mobile_client != None:
-            if self._RCF == None:
+        if self.mobile_client is not None:
+            if self._RCF is None:
                 tf_client = tf.TFClient(
                     self.mobile_client.ros_client,
-                    fixed_frame='robot_base_footprint',
+                    fixed_frame="robot_base_footprint",
                     angular_threshold=0.0,
                     rate=10.0,
                 )
-                tf_client.subscribe('robot_arm_base', self._receive_base_frame_callback)
+                tf_client.subscribe("robot_arm_base", self._receive_base_frame_callback)
         return self._RCF
 
     def _receive_base_frame_callback(self, message):
         pose_point = Point(
-            message['translation']['x'],
-            message['translation']['y'],
-            message['translation']['z'],
+            message["translation"]["x"],
+            message["translation"]["y"],
+            message["translation"]["z"],
         )
         pose_quaternion = Quaternion(
-            message['rotation']['w'],
-            message['rotation']['x'],
-            message['rotation']['y'],
-            message['rotation']['z'],
+            message["rotation"]["w"],
+            message["rotation"]["x"],
+            message["rotation"]["y"],
+            message["rotation"]["z"],
         )
         pose_frame = Frame.from_quaternion(pose_quaternion, pose_point)
         self._RCF = pose_frame

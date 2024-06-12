@@ -13,7 +13,7 @@ from compas_robots import Configuration
 from roslibpy import Message, Topic, Service, tf
 from roslibpy.core import ServiceRequest
 
-__all__ = ['AttrDict', 'MobileRobotClient']
+__all__ = ["AttrDict", "MobileRobotClient"]
 
 
 class AttrDict(dict):
@@ -49,7 +49,7 @@ class MobileRobotClient(object):
     def connect(self):
         """_summary_"""
         self.ros_client.run()
-        print('Is ROS connected? ', self.ros_client.is_connected)
+        print("Is ROS connected? ", self.ros_client.is_connected)
 
     def disconnect(self):
         """_summary_"""
@@ -76,15 +76,15 @@ class MobileRobotClient(object):
 
     def _receive_tf_frame_callback(self, message):
         pose_point = Point(
-            message['translation']['x'],
-            message['translation']['y'],
-            message['translation']['z'],
+            message["translation"]["x"],
+            message["translation"]["y"],
+            message["translation"]["z"],
         )
         pose_quaternion = Quaternion(
-            message['rotation']['w'],
-            message['rotation']['x'],
-            message['rotation']['y'],
-            message['rotation']['z'],
+            message["rotation"]["w"],
+            message["rotation"]["x"],
+            message["rotation"]["y"],
+            message["rotation"]["z"],
         )
         pose_frame = Frame.from_quaternion(pose_quaternion, pose_point)
         self.tf_frame = pose_frame
@@ -204,7 +204,7 @@ class MobileRobotClient(object):
         self.topics.pop(topic_name)
 
     def print_msg_callback(self, message):
-        print(message['data'])
+        print(message["data"])
 
     def load_from_robot(self):
         self.robot = self.ros_client.load_robot()
@@ -231,26 +231,26 @@ class MobileRobotClient(object):
         self.cmd_vel.angular.z = 0.0
 
     def _receive_joint_states(self, message):
-        for key, joint_name in enumerate(message.get('name')):
-            self.current_joint_values[joint_name] = message.get('position')[key]
+        for key, joint_name in enumerate(message.get("name")):
+            self.current_joint_values[joint_name] = message.get("position")[key]
 
     def joint_states_subscribe(self):
         self.topic_subscribe(
-            '/robot/joint_states', 'sensor_msgs/JointState', self._receive_joint_states
+            "/robot/joint_states", "sensor_msgs/JointState", self._receive_joint_states
         )
 
     def joint_states_unsubscribe(self):
-        self.topic_unsubscribe('/robot/joint_states')
+        self.topic_unsubscribe("/robot/joint_states")
 
     def get_current_ur10e_and_liftkit_config(self):
         joint_names_ordered = [
-            'robot_ewellix_lift_top_joint',
-            'robot_arm_shoulder_pan_joint',
-            'robot_arm_shoulder_lift_joint',
-            'robot_arm_elbow_joint',
-            'robot_arm_wrist_1_joint',
-            'robot_arm_wrist_2_joint',
-            'robot_arm_wrist_3_joint',
+            "robot_ewellix_lift_top_joint",
+            "robot_arm_shoulder_pan_joint",
+            "robot_arm_shoulder_lift_joint",
+            "robot_arm_elbow_joint",
+            "robot_arm_wrist_1_joint",
+            "robot_arm_wrist_2_joint",
+            "robot_arm_wrist_3_joint",
         ]
         joint_values_ordered = [
             self.current_joint_values.get(joint_name, 0.0)
@@ -270,14 +270,14 @@ class MobileRobotClient(object):
     def list_controllers(self):
         list_controllers_service = Service(
             self.ros_client,
-            '/robot/controller_manager/list_controllers',
-            '/robot/controller_manager/list_controllers',
+            "/robot/controller_manager/list_controllers",
+            "/robot/controller_manager/list_controllers",
         )
         request = ServiceRequest()
         print(list_controllers_service.call(request))
 
     def move_forward(self, vel=0.01, dist=0.1):
-        move_base = self.topic_publish('/robot/cmd_vel', 'geometry_msgs/Twist')
+        move_base = self.topic_publish("/robot/cmd_vel", "geometry_msgs/Twist")
         self.cmd_vel.linear.x = vel * (dist / abs(dist))
         t0 = time.time()
         while abs(dist) > (time.time() - t0) * vel:
@@ -292,7 +292,7 @@ class MobileRobotClient(object):
         self.move_forward(vel=vel, dist=-dist)
 
     def move_radial(self, deg=90, vel=0.1, dist=0.1):
-        move_base = self.topic_publish('/robot/cmd_vel', 'geometry_msgs/Twist')
+        move_base = self.topic_publish("/robot/cmd_vel", "geometry_msgs/Twist")
         x_vel = math.cos(math.radians(deg)) * vel
         y_vel = math.sin(math.radians(deg)) * vel
         self.cmd_vel.linear.x = x_vel
@@ -316,8 +316,8 @@ class MobileRobotClient(object):
     ):
         joint_state_publisher = Topic(
             self.ros_client,
-            '/robot/arm/scaled_pos_traj_controller/command',
-            'trajectory_msgs/JointTrajectory',
+            "/robot/arm/scaled_pos_traj_controller/command",
+            "trajectory_msgs/JointTrajectory",
         )
         joint_state_publisher.advertise()
         treq = [pos / vel for pos, vel in zip(configuration.joint_values, max_velocity)]
@@ -350,14 +350,14 @@ class MobileRobotClient(object):
             time_from_start=rostime2.data,
         )
         jt = JointTrajectory(
-            header=Header(stamp=rostime, frame_id=''),
+            header=Header(stamp=rostime, frame_id=""),
             joint_names=[
-                'robot_arm_shoulder_pan_joint',
-                'robot_arm_shoulder_lift_joint',
-                'robot_arm_elbow_joint',
-                'robot_arm_wrist_1_joint',
-                'robot_arm_wrist_2_joint',
-                'robot_arm_wrist_3_joint',
+                "robot_arm_shoulder_pan_joint",
+                "robot_arm_shoulder_lift_joint",
+                "robot_arm_elbow_joint",
+                "robot_arm_wrist_1_joint",
+                "robot_arm_wrist_2_joint",
+                "robot_arm_wrist_3_joint",
             ],
             points=[jtp0, jtp, jtp1],
         )
@@ -377,18 +377,18 @@ class MobileRobotClient(object):
 
     def set_lift_height(self, height):
         self.topic_publish(
-            '/robot/lift_joint_position_controller/command', 'std_msgs/Float64'
+            "/robot/lift_joint_position_controller/command", "std_msgs/Float64"
         )
-        self.get_topic('/robot/lift_joint_position_controller/command').publish(
-            Message({'data': height})
+        self.get_topic("/robot/lift_joint_position_controller/command").publish(
+            Message({"data": height})
         )
         t0 = time.time()
         while time.time() - t0 < 5:
             time.sleep(0.1)
-        self.topic_unpublish('/robot/lift_joint_position_controller/command')
+        self.topic_unpublish("/robot/lift_joint_position_controller/command")
 
     def rotate_in_place(self, rad=(math.pi / 2), vel=0.01):
-        move_base = self.topic_publish('/robot/cmd_vel', 'geometry_msgs/Twist')
+        move_base = self.topic_publish("/robot/cmd_vel", "geometry_msgs/Twist")
         self.cmd_vel.angular.z = vel
         t0 = time.time()
         while abs(rad) > (time.time() - t0) * abs(vel):
@@ -403,7 +403,7 @@ class MobileRobotClient(object):
 
     def stop_robot(self):
         self.cmd_vel_clear()
-        move_base = self.topic_publish('/robot/cmd_vel', 'geometry_msgs/Twist')
+        move_base = self.topic_publish("/robot/cmd_vel", "geometry_msgs/Twist")
         move_base.publish(Message(self.cmd_vel))
         move_base.unadvertise()
 
@@ -429,8 +429,8 @@ class MobileRobotClient(object):
         pass
 
 
-if __name__ == '__main__':
-    mb = MobileRobotClient(host='192.168.0.4', port=9090)
+if __name__ == "__main__":
+    mb = MobileRobotClient(host="192.168.0.4", port=9090)
     mb.connect()
     time.sleep(1)
     # mb.list_controllers()
