@@ -76,7 +76,12 @@ class MobileRobot(Robot):
     def RCF(self):
         if self.mobile_client != None:
             if self._RCF == None:
-                self.mobile_client.tf_subscribe("robot_arm_base", "robot_base_footprint", self._receive_base_frame_callback, timeout=5)
+                self.mobile_client.tf_subscribe(
+                    "robot_arm_base",
+                    "robot_base_footprint",
+                    self._receive_base_frame_callback,
+                    timeout=5,
+                )
         return self._RCF
 
     def _receive_base_frame_callback(self, message):

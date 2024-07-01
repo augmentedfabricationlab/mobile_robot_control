@@ -15,10 +15,8 @@ from roslibpy.core import ServiceRequest
 
 from threading import Timer
 
-__all__ = [
-    "AttrDict",
-    "MobileRobotClient"
-]
+__all__ = ["AttrDict", "MobileRobotClient"]
+
 
 class AttrDict(dict):
     def __init__(self, *args, **kwargs):
@@ -58,7 +56,7 @@ class MobileRobotClient(object):
     def disconnect(self):
         """_summary_"""
         self.ros_client.close()
-        
+
     def tf_subscribe(self, target_frame, reference_frame, callback=None, timeout=None):
         """_summary_
 
@@ -77,11 +75,11 @@ class MobileRobotClient(object):
         else:
             tf_client = self.tf_clients.get(reference_frame)
         if callback is None:
-            callback = self._receive_tf_frame_callback        
+            callback = self._receive_tf_frame_callback
         tf_client.subscribe(target_frame, callback)
         if timeout:
             Timer(timeout, self.tf_unsubscribe(target_frame, reference_frame)).start()
-        
+
     def _receive_tf_frame_callback(self, message):
         pose_point = Point(
             message["translation"]["x"],
