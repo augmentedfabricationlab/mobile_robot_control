@@ -242,13 +242,17 @@ class MobileRobotClient(object):
 
     def joint_states_subscribe(self):
         self.topic_subscribe(
-            "/robot/joint_states", "sensor_msgs/JointState", self._receive_joint_states
+            "/robot/arm/joint_states", "sensor_msgs/JointState", self._receive_joint_states
+        )
+        self.topic_subscribe(
+            "/robot/lift/joint_states", "sensor_msgs/JointState", self._receive_joint_states
         )
 
     def joint_states_unsubscribe(self):
-        self.topic_unsubscribe("/robot/joint_states")
+        self.topic_unsubscribe("/robot/arm/joint_states")
+        self.topic_unsubscribe("/robot/lift/joint_states")
 
-    def get_current_ur10e_and_liftkit_config(self):
+    def get_current_configuration(self):
         joint_names_ordered = [
             "robot_ewellix_lift_top_joint",
             "robot_arm_shoulder_pan_joint",
