@@ -74,15 +74,9 @@ class MobileRobot(Robot):
 
     @property
     def RCF(self):
-        if self.mobile_client is not None:
-            if self._RCF is None:
-                tf_client = tf.TFClient(
-                    self.mobile_client.ros_client,
-                    fixed_frame="robot_base_footprint",
-                    angular_threshold=0.0,
-                    rate=10.0,
-                )
-                tf_client.subscribe("robot_arm_base", self._receive_base_frame_callback)
+        if self.mobile_client != None:
+            if self._RCF == None:
+                self.mobile_client.tf_subscribe("robot_arm_base", "robot_base_footprint", self._receive_base_frame_callback, timeout=5)
         return self._RCF
 
     def _receive_base_frame_callback(self, message):
