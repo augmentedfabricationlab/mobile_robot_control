@@ -8,7 +8,7 @@
 ## Requirements
 
 * Operating System: **Windows 10 Pro** <sup>(1)</sup>.
-* [Rhinoceros 3D 7.0](https://www.rhino3d.com/)
+* [Rhinoceros 3D 8.0](https://www.rhino3d.com/)
 * [Anaconda Python Distribution](https://www.anaconda.com/download/): 3.x
 * [Docker Community Edition](https://www.docker.com/get-started): Download it for [Windows](https://store.docker.com/editions/community/docker-ce-desktop-windows). Leave "switch Linux containers to Windows containers" disabled.
 * Git: [official command-line client](https://git-scm.com/) or visual GUI (e.g. [Github Desktop](https://desktop.github.com/) or [SourceTree](https://www.sourcetreeapp.com/))
@@ -20,47 +20,58 @@
 <sup>(1): Windows 10 Home does not support running Docker.</sup>
 
 ## Dependencies
-* [compas 1.17.3 or higher](https://compas.dev/index.html)
-* [compas_fab 0.27.0 or higher](https://gramaziokohler.github.io/compas_fab/latest/)
+* [compas 2.2.0 or higher](https://compas.dev/index.html)
+* [compas_fab 1.0.2 or higher](https://gramaziokohler.github.io/compas_fab/latest/)
 
 ## Getting Started
 
-### 1. Setting up the Anaconda environment with all dependencies
+### 1. Install dependencies on Rhino with Rhinocode
+
+After installing Rhino 8, open Rhino and run ScriptEditor on the Rhino command line to initialize Python.
 
 Execute the commands below in Anaconda Prompt:
+    
+    C:\Users\your_user_name\.rhinocode\py39-rh8\python.exe -m pip install compas compas_robots roslibpy pyserial
+    C:\Users\your_user_name\.rhinocode\py39-rh8\python.exe -m pip install --no-deps compas_fab
 
-#### Install Compas & Compas Fab
- 
-    (base) conda config --add channels conda-forge
-    (base) conda create -n afab compas_fab --yes
-    (base) conda activate afab
+If you have an older version, you have to force install a new version:
     
-#### Install on Rhino
+    C:\Users\your_user_name\.rhinocode\py39-rh8\python.exe -m pip install --upgrade compas compas_robots roslibpy pyserial
+    C:\Users\your_user_name\.rhinocode\py39-rh8\python.exe -m pip install --upgrade --no-deps compas_fab
     
-    (afab) python -m compas_rhino.install -v 7.0
-    
-#### Verify Installation
-
-    (afab) pip show compas_fab
-    
-    Name: compas-fab
-    Version: 0.XX.X
-    Summary: Robotic fabrication package for the COMPAS Framework
-    ....
-    
-### 2. Cloning and installing the repository
+### 2. Cloning the repositories
 
 #### Clone the repository
 
-* Create a workspace directory: C:\Users\YOUR_USERNAME\workspace
-* Open Github Desktop and clone the repository [this repository](https://github.com/augmentedfabricationlab/mobile_robot_control) into you workspace folder.
+Create a workspace directory: C:\Users\YOUR_USERNAME\workspace
 
-#### Install the repository in editable mode
+Open Github Desktop and clone the repositories:
+* [mobile_robot_control](https://github.com/augmentedfabricationlab/mobile_robot_control) into you workspace folder.
+* [ur_fabrication_control](https://github.com/augmentedfabricationlab/ur_fabrication_control) into you workspace folder.
+* [fabrication_manager](https://github.com/augmentedfabricationlab/fabrication_manager) into you workspace folder.
 
-    (afab) python -m pip install -e <your_path>/<your_repository_name>
-    (afab) python -m compas_rhino.install -p mobile_robot_control -v 7.0
+SWITCH TO compas2 BRANCH IN MOBILE_ROBOT_CONTROL AND UR_FABRICATION_CONTROL!!!!
 
-## Visualizing Robot Model
+### 3. Install the repositories in editable mode
+
+Open Rhino, Grasshopper and a Python3 block. Go to Tools/Options and below add the following paths:
+* C:\Users\your_user_name\workspace\mobile_robot_control\src
+* C:\Users\your_user_name\workspace\ur_fabrication_control\src
+* C:\Users\your_user_name\workspace\fabrication_manager\src
+
+### 4. Run docker
+
+Open up the Docker desktop.
+
+Open up VScode, and install the docker extension.
+
+On VScode, find the file: \mobile_robot_control\docker\ros-systems\rbvogui-xl-ur20-noetic\docker-compose.yml, right click and click "compose up". Wait for the images to be copied and started.
+
+### 5. Playgrounds
+
+Go to C:\Users\your_user_name\workspace\mobile_robot_control\rhino and use the playgrounds that start with r8...
+
+## Robot Model and Robot Frames
 
 * Open the file [rhino/01_mobile_robot_model.ghx](rhino/01_mobile_robot_model.ghx).
 * First, you need to load a specified robot model by pressing the `load` button (you can choose the model from a list of urdf files).
