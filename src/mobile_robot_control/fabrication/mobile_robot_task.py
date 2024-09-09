@@ -1,5 +1,5 @@
 from fabrication_manager.task import Task
-from ur_fabrication_control.direct_control.fabrication_process import URTask
+from ur_fabrication_control.direct_control.fabrication import URTask
 from ur_fabrication_control.direct_control.mixins import URScript_AreaGrip
 from compas_rhino.conversions import frame_to_rhino_plane
 from compas_robots import Configuration
