@@ -1,6 +1,6 @@
 from fabrication_manager.task import Task
 from ur_fabrication_control.direct_control.fabrication import URTask
-from ur_fabrication_control.direct_control.mixins import URScript_AreaGrip
+from ur_fabrication_control.direct_control.mixins import URScript, URScript_AreaGrip
 from compas_rhino.conversions import frame_to_rhino_plane
 from compas_robots import Configuration
 from compas.geometry import Frame, Transformation, Point, Vector
@@ -16,25 +16,27 @@ __all__ = [
     "MotionPlanFrameTask",
     "InverseKinematicsTask",
     "GetConfigurationTask",
+    "ExecuteMotionTask",
     "SearchAndSaveMarkersTask",
     "GetMarkerPoseTask",
     "FixRobotToMarkerTask",
 ]
 
+### Motion plan tasks ###
 
-### Moveit tasks ###
 class MotionPlanConfigurationTask(Task):
     def __init__(
         self,
         robot,
         target_configuration,
         start_configuration,
-        group="ur10e",
+        group="ur20",
         tolerance_above=[math.radians(1)] * 6,
         tolerance_below=[math.radians(1)] * 6,
         attached_collision_meshes=None,
         path_constraints=None,
         planner_id="RRTConnect",
+        validation=True,
         key=None,
     ):
         super(MotionPlanConfigurationTask, self).__init__(key)
@@ -59,74 +61,98 @@ class MotionPlanConfigurationTask(Task):
             "accelerations": [],
         }
 
+        self.validation = validation
+        self.replan = False
+        self.approved = False
+
     def run(self, stop_thread):
-        goal_constraints = self.robot.constraints_from_configuration(
-            configuration=self.target_configuration,
-            tolerances_above=self.tolerance_above,
-            tolerances_below=self.tolerance_below,
-            group=self.group,
-        )
+        goal_constraints = self.robot.constraints_from_configuration(self.target_configuration, self.tolerance_above, self.tolerance_below, self.group)
 
         self.log("Planning trajectory...")
-        self.trajectory = self.robot.plan_motion(
-            goal_constraints,
-            start_configuration=self.start_configuration,
-            group=self.group,
-            options=dict(
-                attached_collision_meshes=self.attached_collision_meshes,
-                path_constraints=self.path_constraints,
-                planner_id=self.planner_id,
-            ),
-        )
 
         while not stop_thread():
-            if self.trajectory is not None:
-                break
-            time.sleep(0.1)
+            # Clean trajectory.
+            self.replan = False
+            self.trajectory = None
+            self.results = {
+                "configurations": [],
+                "planes": [],
+                "positions": [],
+                "velocities": [],
+                "accelerations": [],
+                }
 
-        self.log("Trajectory found at {}.".format(self.trajectory))
+            self.trajectory = self.robot.plan_motion(
+                goal_constraints,
+                start_configuration=self.start_configuration,
+                group=self.group,
+                options=dict(
+                    attached_collision_meshes=self.attached_collision_meshes,
+                    path_constraints=self.path_constraints,
+                    planner_id=self.planner_id,
+                ),
+            )
 
-        for c in self.trajectory.points:
-            config = self.robot.merge_group_with_full_configuration(
-                c, self.trajectory.start_configuration, self.group
-            )
-            joint_names_ordered = [
-                "robot_ewellix_lift_top_joint",
-                "robot_arm_shoulder_pan_joint",
-                "robot_arm_shoulder_lift_joint",
-                "robot_arm_elbow_joint",
-                "robot_arm_wrist_1_joint",
-                "robot_arm_wrist_2_joint",
-                "robot_arm_wrist_3_joint",
-            ]
-            joint_values_ordered = [
-                config.joint_values[config.joint_names.index(joint_name)]
-                for joint_name in joint_names_ordered
-            ]
-            joint_types_ordered = [
-                config.joint_types[config.joint_names.index(joint_name)]
-                for joint_name in joint_names_ordered
-            ]
-            mobile_robot_config = Configuration(
-                joint_values_ordered, joint_types_ordered, joint_names_ordered
-            )
-            self.results["configurations"].append(mobile_robot_config)
+            while not stop_thread():
+                if self.trajectory is not None:
+                    break
+                time.sleep(0.1)
 
-            frame_t = self.robot.forward_kinematics(
-                c, self.group, options=dict(solver="model")
-            )
-            self.results["planes"].append(
-                frame_to_rhino_plane(
-                    frame_t.transformed(self.robot.transformation_BCF_WCF())
+            self.log("Trajectory found at {}.".format(self.trajectory))
+
+            for c in self.trajectory.points:
+                config = self.robot.merge_group_with_full_configuration(
+                    c, self.trajectory.start_configuration, self.group
                 )
-            )
-            self.results["positions"].append(c.positions)
-            self.results["velocities"].append(c.velocities)
-            self.results["accelerations"].append(c.accelerations)
+                joint_names_ordered = [
+                    "robot_ewellix_lift_top_joint",
+                    "robot_arm_shoulder_pan_joint",
+                    "robot_arm_shoulder_lift_joint",
+                    "robot_arm_elbow_joint",
+                    "robot_arm_wrist_1_joint",
+                    "robot_arm_wrist_2_joint",
+                    "robot_arm_wrist_3_joint",
+                ]
+                joint_values_ordered = [
+                    config.joint_values[config.joint_names.index(joint_name)]
+                    for joint_name in joint_names_ordered
+                ]
+                joint_types_ordered = [
+                    config.joint_types[config.joint_names.index(joint_name)]
+                    for joint_name in joint_names_ordered
+                ]
+                mobile_robot_config = Configuration(
+                    joint_values_ordered, joint_types_ordered, joint_names_ordered
+                )
+                self.results["configurations"].append(mobile_robot_config)
 
+                frame_t = self.robot.forward_kinematics(
+                    c, self.group, options=dict(solver="model")
+                )
+                self.results["planes"].append(
+                    frame_to_rhino_plane(
+                        frame_t.transformed(self.robot.transformation_BCF_WCF())
+                    )
+                )
+                self.results["positions"].append(c.positions)
+                self.results["velocities"].append(c.velocities)
+                self.results["accelerations"].append(c.accelerations)
+
+            if self.validation:
+                # Wait until trajectory is approved or replan is requested.
+                while not stop_thread():
+                    time.sleep(0.1)
+                    if self.approved == True or self.replan == True:
+                        break
+                # Break if trajectory is approved.
+                if self.approved == True:
+                    break
+                time.sleep(0.1)
+            else:
+                break
+                
         self.is_completed = True
         return True
-
 
 class MotionPlanFrameTask(Task):
     def __init__(
@@ -312,7 +338,6 @@ class InverseKinematicsTask(Task):
         self.is_completed = True
         return True
 
-
 class GetConfigurationTask(Task):
     def __init__(self, robot, key=None):
         super(GetConfigurationTask, self).__init__(key)
@@ -344,9 +369,38 @@ class GetConfigurationTask(Task):
         self.is_completed = True
         return True
 
+class ExecuteMotionTask(URTask):
+    def __init__(self, robot, robot_address, fabrication, motiontask_key=0, reverse=False, velocity=0.06, radius=0.01, payload=0.0, CoG=[0,0,0], key=None):
+        super(ExecuteMotionTask, self).__init__(robot, robot_address, key)
+        self.robot = robot
+        self.robot_address = robot_address
+        self.fabrication = fabrication
+        self.motiontask_key = motiontask_key
+        self.velocity = velocity
+        self.radius = radius
+        self.configurations = None
+        self.reverse = reverse
+        self.payload = payload
+        self.CoG = CoG
+                
+    def create_urscript(self):
+        self.log("Executing the planned motion!")
+        # Get the motion plan from 1 task before.
+        motionplan_task = self.fabrication.get_task_by_key(self.motiontask_key)
+        configurations = motionplan_task.results.get("configurations")
+        if self.reverse:
+            self.configurations = configurations[::-1]
+        else:
+            self.configurations = configurations
+
+        self.urscript.set_payload(self.payload, self.CoG)
+        self.urscript.add_line("textmsg(\">> TASK {}.\")".format(self.key))
+
+        for config in self.configurations:
+            joint_configuration = Configuration.from_revolute_values(config.revolute_values)
+            self.urscript.move_joint(joint_configuration, self.velocity, self.radius)
 
 ### UR direct tasks ###
-
 
 class MoveJointsTask(URTask):
     def __init__(
@@ -399,7 +453,6 @@ class MoveJointsTask(URTask):
     def run(self, stop_thread):
         self.create_urscript()
         super(MoveJointsTask, self).run(stop_thread)
-
 
 class MoveLinearTask(URTask):
     def __init__(
@@ -460,9 +513,7 @@ class MoveLinearTask(URTask):
         self.create_urscript()
         super(MoveLinearTask, self).run(stop_thread)
 
-
 ### Marker related tasks ###
-
 
 class SearchAndSaveMarkersTask(Task):
     def __init__(
@@ -525,7 +576,6 @@ class SearchAndSaveMarkersTask(Task):
         self.is_completed = True
         return True
 
-
 class SearchAndSaveRobotPoseInMarkerTask(Task):
     def __init__(
         self, robot, robot_address, fabrication, duration=10, update=True, key=None
@@ -587,7 +637,6 @@ class SearchAndSaveRobotPoseInMarkerTask(Task):
         self.is_completed = True
         return True
 
-
 class GetRobotPoseInMarkerPoseTask(Task):
     def __init__(
         self, robot, marker_id="marker_0", reference_frame_id="robot_arm_base", key=None
@@ -630,7 +679,6 @@ class GetRobotPoseInMarkerPoseTask(Task):
         self.is_completed = True
         return True
 
-
 class GetMarkerPoseTask(Task):
     def __init__(
         self, robot, marker_id="marker_0", reference_frame_id="robot_arm_base", key=None
@@ -669,7 +717,6 @@ class GetMarkerPoseTask(Task):
         self.robot.mobile_client.tf_unsubscribe(self.marker_id, self.reference_frame_id)
         self.is_completed = True
         return True
-
 
 class FixRobotToMarkerTask(Task):
     def __init__(self, robot, fixed_marker_id="marker_0", key=None):
