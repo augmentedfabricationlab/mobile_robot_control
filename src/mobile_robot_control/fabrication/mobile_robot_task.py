@@ -390,6 +390,7 @@ class ExecuteMotionTask(URTask):
         # Get the motion plan from 1 task before.
         motionplan_task = self.fabrication.get_task_by_key(self.motiontask_key)
         configurations = motionplan_task.results.get("configurations")
+        frame_WCF = motionplan_task.frame_WCF
         if self.reverse:
             self.configurations = configurations[::-1]
         else:
@@ -401,6 +402,11 @@ class ExecuteMotionTask(URTask):
         for config in self.configurations:
             joint_configuration = Configuration.from_revolute_values(config.revolute_values)
             self.urscript.move_joint(joint_configuration, self.velocity, self.radius)
+
+        # Go to the target frame with radius 0.
+        self.urscript.add_line("\tsleep({})".format(1.0))
+        self.urscript.move_linear(frame=self.robot.from_WCF_to_RCF(frame_WCF), velocity=self.velocity/2, radius=0.0)
+        self.log(self.urscript.commands)
 
 ### UR direct tasks ###
 
