@@ -448,6 +448,7 @@ class MoveLinearTask(URTask):
         velocity=0.10,
         radius=0.0,
         payload=0.0,
+        CoG=[0.0, 0.0, 0.0],
         key=None,
     ):
         super(MoveLinearTask, self).__init__(robot, robot_address, key)
@@ -458,6 +459,7 @@ class MoveLinearTask(URTask):
         self.velocity = velocity
         self.radius = radius
         self.payload = payload
+        self.CoG = CoG
 
     def create_urscript(self):
         if not self.in_RCF:
@@ -465,7 +467,7 @@ class MoveLinearTask(URTask):
         else:
             frame_RCF = self.frame
 
-        self.urscript.set_payload(self.payload)
+        self.urscript.set_payload(self.payload, self.CoG)
         self.urscript.add_line('textmsg(">> TASK{}.")'.format(self.key))
 
         self.urscript.move_linear(frame_RCF, self.velocity, self.radius)
