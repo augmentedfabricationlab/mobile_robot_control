@@ -3,6 +3,8 @@ from compas_fab.robots import Robot
 from compas.geometry import Frame, Point, Vector
 from compas.geometry import Transformation, Translation, Quaternion
 from roslibpy import Message, Topic, Service, tf
+import time
+import json
 
 __all__ = ["MobileRobot"]
 
@@ -24,7 +26,6 @@ class MobileRobot(Robot):
         """
         documentation
         """
-
         self._scale_factor = 1.0
         self.model = model
         self.artist = artist
@@ -33,6 +34,9 @@ class MobileRobot(Robot):
         self.mobile_client = mobile_client
         self.attributes = {}
         self._current_ik = {"request_id": None, "solutions": None}
+        
+        self.motion_enabled = False # whether the mobile robot is moving
+        self.is_aligned = False # whether the WCF_slam (okvis world) is aligned with WCF (rhino world)
 
         self._lift_height = 0  # lift height
 
@@ -40,42 +44,76 @@ class MobileRobot(Robot):
         self._BCF = Frame.worldXY()  # base coordinate frame in WCF (BCF)
         self._RCF = None  # ur robot arm coordinate frame in BCF (RCF)
 
-        self._RWCF = Frame.worldXY()  # reference world coordinate frame (RWCF)
-        self._RBCF = Frame.worldXY()  # base coordinate frame in RWCF (RBCF)
-        self._RRCF = None  # ur robot arm coordinate frame in RBCF (RRCF)
-
-        self._PCF = (
-            Frame.worldXY()
-        )  # frame for element pick-up on mobile robot's base in RCF (PCF)
-
+        self._WCF_slam = Frame.worldXY()  # reference (okvis) world coordinate frame in WCF (WCF_slam) 
+        self._BCF_slam = Frame.worldXY()  # (okvis) base coordinate frame in WCF_slam (BCF_slam)
+        
+        self._BCF_gt = Frame.worldXY()  # ground truth IsaacSim base coordinate frame in WCF (BCF_gt) 
+        
+        self._PCF = Frame.worldXY()  # fixed element pick frame on mobile robot's base in RCF (PCF)
+        
+        self._frame_log = []
+        
+        self._update_BCF() # compute initial BCF
+        self._record_state("init") # record initial state
+        
     @property
-    def lift_height(self):
-        return self._lift_height
-
-    @lift_height.setter
-    def lift_height(self, lift_height):
-        self._lift_height = lift_height
-
+    def WCF(self):
+        """Rhino World Coordinate Frame (always worldXY)."""
+        return self._WCF
+    
     @property
-    def PCF(self):
-        return self._PCF
+    def WCF_slam(self):
+        """Reference World Coordinate Frame. Transformation between OKVIS and Rhino WCFs."""
+        return self._WCF_slam
 
-    @PCF.setter
-    def PCF(self, PCF):
-        self._PCF = PCF
+    @WCF_slam.setter
+    def WCF_slam(self, frame_or_transform):
+        # You can either give a Frame (for convenience) or a Transformation
+        if isinstance(frame_or_transform, Frame):
+            self._WCF_slam = frame_or_transform
+        elif isinstance(frame_or_transform, Transformation):
+            self._WCF_slam = Frame.worldXY().transformed(frame_or_transform)
+        else:
+            raise TypeError("WCF_slam must be a Frame or Transformation")
+        self._update_BCF()
+        
+    @property
+    def BCF_slam(self):
+        """Base Coordinate Frame in OKVIS WCF_slam."""
+        return self._BCF_slam
 
+    @BCF_slam.setter
+    def BCF_slam(self, frame):
+        if not isinstance(frame, Frame):
+            raise TypeError("BCF_slam must be a compas Frame")
+        self._BCF_slam = frame
+        self._update_BCF()
+    
     @property
     def BCF(self):
+        """Robot base frame in Rhino world = WCF_slam x BCF_slam"""
         return self._BCF
+    
+    def _update_BCF(self):
+        """BCF = WCF_slam x BCF_slam"""
+        T_rwcf = Transformation.from_frame(self._WCF_slam)
+        self._BCF = self._BCF_slam.transformed(T_rwcf)
+        
+    @property
+    def BCF_gt(self):
+        return self._BCF_gt
 
-    @BCF.setter
-    def BCF(self, BCF):
-        self._BCF = BCF
-
+    @BCF_gt.setter
+    def BCF_gt(self, frame):
+        if not isinstance(frame, Frame):
+            raise TypeError("BCF_gt must be a compas.geometry.Frame")
+        self._BCF_gt = frame
+        
     @property
     def RCF(self):
         if self.mobile_client != None:
             if self._RCF == None:
+                # self._RCF = Frame(Point(0.275, 0.0, 1.0328), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
                 self.mobile_client.tf_subscribe(
                     "robot_arm_base",
                     "robot_base_footprint",
@@ -109,12 +147,46 @@ class MobileRobot(Robot):
         return self._RCF
 
     @property
-    def RWCF(self):
-        """Get the reference world coordinate frame.
-        :class:`compas.geometry.Frame`
-        """
-        return self._RWCF
+    def lift_height(self):
+        return self._lift_height
 
+    @lift_height.setter
+    def lift_height(self, lift_height):
+        self._lift_height = lift_height
+
+    @property
+    def PCF(self):
+        return self._PCF
+
+    @PCF.setter
+    def PCF(self, PCF):
+        self._PCF = PCF
+        
+    def _record_state(self, tag="update"):
+        """Record the current frames of the mobile robot."""
+        entry = {
+            "time": time.time(),
+            "tag": tag,
+            "WCF_slam": self._frame_to_dict(self._WCF_slam),
+            "BCF_slam": self._frame_to_dict(self._BCF_slam),
+            "BCF":  self._frame_to_dict(self._BCF),
+            "BCF_gt": self._frame_to_dict(self._BCF_gt)
+        }
+        self._frame_log.append(entry)
+    
+    def export_log(self, path):
+        with open(path, "w") as f:
+            json.dump(self._frame_log, f, indent=2)
+    
+    def _frame_to_dict(self, frame):
+            if frame is None:
+                return None
+            return {
+                "point": list(frame.point),
+                "xaxis": list(frame.xaxis),
+                "yaxis": list(frame.yaxis)
+            }
+        
     def transformation_BCF_WCF(self):
         """Get the transformation from the base coordinate frame (BCF) to the world coordinate frame (WCF).
         -------
@@ -161,35 +233,49 @@ class MobileRobot(Robot):
         """
         return Transformation.from_frame(self.RCF).inverted()
 
-    def transformation_RBCF_WCF(self):
-        """Get the transformation from the reference base coordinate frame (RBCF) to the world coordinate frame (WCF).
+    def transformation_BCF_slam_WCF(self):
+        """Get the transformation from the reference base coordinate frame (BCF_slam) to the world coordinate frame (WCF).
         -------
         :class:`compas.geometry.Transformation`
         """
-        frame_RBCF_in_WCF = self.RWCF.to_world_coordinates(self._RBCF)
-        return Transformation.from_change_of_basis(frame_RBCF_in_WCF, Frame.worldXY())
+        frame_BCF_slam_in_WCF = self.WCF_slam.to_world_coordinates(self._BCF_slam)
+        return Transformation.from_change_of_basis(frame_BCF_slam_in_WCF, Frame.worldXY())
 
-    def transformation_WCF_RBCF(self):
-        """Get the transformation from the world coordinate frame (WCF) to the reference base coordinate frame (RBCF).
+    def transformation_WCF_BCF_slam(self):
+        """Get the transformation from the world coordinate frame (WCF) to the reference base coordinate frame (BCF_slam).
         -------
         :class:`compas.geometry.Transformation`
         """
-        frame_RBCF_in_WCF = self.RWCF.to_world_coordinates(self._RBCF)
-        return Transformation.from_change_of_basis(Frame.worldXY(), frame_RBCF_in_WCF)
+        frame_BCF_slam_in_WCF = self.WCF_slam.to_world_coordinates(self._BCF_slam)
+        return Transformation.from_change_of_basis(Frame.worldXY(), frame_BCF_slam_in_WCF)
 
-    def transformation_RWCF_WCF(self):
-        """Get the transformation from the reference world coordinate frame (RWCF) to the world coordinate frame (WCF).
+    def transformation_WCF_slam_WCF(self):
+        """Get the transformation from the reference world coordinate frame (WCF_slam) to the world coordinate frame (WCF).
         -------
         :class:`compas.geometry.Transformation`
         """
-        return Transformation.from_change_of_basis(self.RWCF, Frame.worldXY())
+        return Transformation.from_change_of_basis(self.WCF_slam, Frame.worldXY())
 
-    def transformation_WCF_RWCF(self):
-        """Get the transformation from the world coordinate frame (WCF) to the reference world coordinate frame (RWCF).
+    def transformation_WCF_WCF_slam(self):
+        """Get the transformation from the world coordinate frame (WCF) to the reference world coordinate frame (WCF_slam).
         -------
         :class:`compas.geometry.Transformation`
         """
-        return Transformation.from_change_of_basis(Frame.worldXY(), self.RWCF)
+        return Transformation.from_change_of_basis(Frame.worldXY(), self.WCF_slam)
+    
+    def transformation_WCF_slam_BCF_slam(self):
+        """Get the transformation from the reference world coordinate frame (WCF_slam) to the reference base coordinate frame (BCF_slam).
+        -------
+        :class:`compas.geometry.Transformation`
+        """
+        return Transformation.from_change_of_basis(self._WCF_slam, self._BCF_slam)
+
+    def transformation_BCF_slam_WCF_slam(self):
+        """Get the transformation from the reference base coordinate frame (BCF_slam) to the reference world coordinate frame (WCF_slam).
+        -------
+        :class:`compas.geometry.Transformation`
+        """
+        return Transformation.from_change_of_basis(self._BCF_slam, self._WCF_slam)
 
     def from_WCF_to_BCF(self, frame_WCF):
         """Represent a frame from the world coordinate system (WCF) in the robot base coordinate system (BCF).
@@ -280,8 +366,8 @@ class MobileRobot(Robot):
         inverted_RCF = Frame.from_transformation(self.transformation_BCF_RCF())
         return inverted_RCF.transformed(Transformation.from_frame(frame_WCF))
 
-    def from_WCF_to_RWCF(self, frame_WCF):
-        """Represent a frame from the world coordinate system (WCF) in the reference world coordinate system (RWCF).
+    def from_WCF_to_WCF_slam(self, frame_WCF):
+        """Represent a frame from the world coordinate system (WCF) in the reference world coordinate system (WCF_slam).
         Parameters
         ----------
         frame_WCF : :class:`compas.geometry.Frame`
@@ -291,5 +377,48 @@ class MobileRobot(Robot):
         :class:`compas.geometry.Frame`
             A frame in the robot's coordinate frame.
         """
-        frame_RWCF = frame_WCF.transformed(self.transformation_WCF_RWCF())
-        return frame_RWCF
+        frame_WCF_slam = frame_WCF.transformed(self.transformation_WCF_WCF_slam())
+        return frame_WCF_slam
+    
+    def from_WCF_slam_to_WCF(self, frame_WCF_slam):
+        """Represent a frame from the world coordinate system (WCF) in the reference world coordinate system (WCF_slam).
+        Parameters
+        ----------
+        frame_WCF : :class:`compas.geometry.Frame`
+            A frame in the world coordinate frame.
+        Returns
+        -------
+        :class:`compas.geometry.Frame`
+            A frame in the robot's coordinate frame.
+        """
+        frame_WCF = frame_WCF_slam.transformed(self.transformation_WCF_slam_WCF())
+        return frame_WCF
+    
+    def from_WCF_slam_to_BCF_slam(self, frame_WCF_slam):
+        """Represent a frame from the reference world coordinate system (WCF_slam) in the reference base coordinate system (BCF_slam).
+        Parameters
+        ----------
+        frame_WCF_slam : :class:`compas.geometry.Frame`
+            A frame in the reference world coordinate frame.
+        Returns
+        -------
+        :class:`compas.geometry.Frame`
+            A frame in the reference base coordinate frame.
+        """
+        frame_BCF_slam = frame_WCF_slam.transformed(self.transformation_WCF_slam_BCF_slam())
+        return frame_BCF_slam   
+    
+    def from_BCF_slam_to_WCF_slam(self, frame_BCF_slam):
+        """Represent a frame from the reference base coordinate system (BCF_slam) in the reference world coordinate system (WCF_slam).
+        Parameters
+        ----------
+        frame_BCF_slam : :class:`compas.geometry.Frame`
+            A frame in the reference base coordinate frame.
+        Returns
+        -------
+        :class:`compas.geometry.Frame`
+            A frame in the reference world coordinate frame.
+        """
+        frame_WCF_slam = frame_BCF_slam.transformed(self.transformation_BCF_slam_WCF_slam())
+        return frame_WCF_slam
+    

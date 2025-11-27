@@ -12,7 +12,6 @@ from compas_fab.robots.time_ import Duration
 from compas_robots import Configuration
 from roslibpy import Message, Topic, Service, tf
 from roslibpy.core import ServiceRequest
-
 from threading import Timer
 
 __all__ = ["AttrDict", "MobileRobotClient"]

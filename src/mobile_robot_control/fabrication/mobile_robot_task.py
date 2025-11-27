@@ -1,6 +1,6 @@
 from fabrication_manager.task import Task
 
-from ur_fabrication_control.direct_control.fabrication import URTask
+from ur_fabrication_control.direct_control.fabrication_process import URTask
 from ur_fabrication_control.direct_control.mixins import URScript, URScript_AreaGrip
 
 from compas_rhino.conversions import frame_to_rhino_plane
@@ -304,7 +304,7 @@ class InverseKinematicsTask(Task):
         robot,
         frame_WCF,
         start_configuration,
-        group="ur10e",
+        group="ur20",
         json_path=None,
         key=None,
     ):
