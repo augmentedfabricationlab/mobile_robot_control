@@ -32,6 +32,9 @@ class MobileRobot(Robot):
         self.semantics = semantics
         self.client = client
         self.mobile_client = mobile_client
+        self.tf_terminology = {"RCF" : "robot_arm_base",
+                               "BCF" : "robot_base_footprint"}
+        
         self.attributes = {}
         self._current_ik = {"request_id": None, "solutions": None}
         
@@ -53,6 +56,7 @@ class MobileRobot(Robot):
         
         self._frame_log = []
         
+        self._update_RCF()
         self._update_BCF() # compute initial BCF
         self._record_state("init") # record initial state
         
@@ -111,15 +115,28 @@ class MobileRobot(Robot):
         
     @property
     def RCF(self):
+        return self._RCF
+    
+    def _update_RCF(self, RCF_frame=None):
         if self.mobile_client != None:
-            if self._RCF == None:
-                # self._RCF = Frame(Point(0.275, 0.0, 1.0328), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
-                self.mobile_client.tf_subscribe(
-                    "robot_arm_base",
-                    "robot_base_footprint",
-                    self._receive_base_frame_callback,
-                    timeout=5,
-                )
+            self.mobile_client.tf_subscribe(
+                self.tf_terminology["RCF"],
+                self.tf_terminology["BCF"],
+                self._receive_base_frame_callback,
+                timeout=5,
+            )
+        elif RCF_frame is not None:
+            self._RCF = RCF_frame
+        else:
+            self._RCF = Frame(Point(0.275, 0.0, 1.0328), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
+        
+        #     robot_arm_base_link = self.forward_kinematics(self.zero_configuration(), 'ur10e', True, options={'link':'robot_arm_base_link'})
+        #     self._RCF = Frame(robot_arm_base_link.point, -robot_arm_base_link.xaxis, -robot_arm_base_link.yaxis)
+        # if self.wheel_type == 'outdoor':
+        #     self._RCF = Frame(Point(0.275, 0.0, 1.049 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
+        # elif self.wheel_type == 'indoor':
+        # self._RCF = Frame(Point(0.275, 0.0, 1.021 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
+        
         return self._RCF
 
     def _receive_base_frame_callback(self, message):
@@ -137,13 +154,6 @@ class MobileRobot(Robot):
         pose_frame = Frame.from_quaternion(pose_quaternion, pose_point)
         self._RCF = pose_frame
 
-        # if self._RCF == None:
-        #     robot_arm_base_link = self.forward_kinematics(self.zero_configuration(), 'ur10e', True, options={'link':'robot_arm_base_link'})
-        #     self._RCF = Frame(robot_arm_base_link.point, -robot_arm_base_link.xaxis, -robot_arm_base_link.yaxis)
-        # if self.wheel_type == 'outdoor':
-        #     self._RCF = Frame(Point(0.275, 0.0, 1.049 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
-        # elif self.wheel_type == 'indoor':
-        # self._RCF = Frame(Point(0.275, 0.0, 1.021 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
         return self._RCF
 
     @property
