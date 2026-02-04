@@ -25,8 +25,8 @@ __all__ = [
     "PickBrickURTask",
     "PlaceBrickURTask",
     "BreakBrickURTask",
-    "MoveJointsTask",
-    "MoveLinearTask",
+    "MoveJointsURdirectTask",
+    "MoveLinearURdirectTask",
     "MotionPlanConfigurationTask",
     "MotionPlanFrameTask",
     "InverseKinematicsTask",
@@ -951,7 +951,7 @@ class SimGripperControlTask(Task):
 
 ### UR direct tasks ###
 
-class MoveJointsTask(URTask):
+class MoveJointsURdirectTask(URTask):
     def __init__(
         self,
         robot,
@@ -963,7 +963,7 @@ class MoveJointsTask(URTask):
         CoG=[0.0, 0.0, 0.0],
         key=None,
     ):
-        super(MoveJointsTask, self).__init__(robot, robot_address, key)
+        super(MoveJointsURdirectTask, self).__init__(robot, robot_address, key)
         self.configuration = configuration
         self.velocity = velocity
         self.radius = radius
@@ -979,7 +979,7 @@ class MoveJointsTask(URTask):
         self.urscript.move_joint(joint_configuration, self.velocity, self.radius)
         self.log("Going to set configuration {}.".format(self.configuration))
 
-class MoveLinearTask(URTask):
+class MoveLinearURdirectTask(URTask):
     def __init__(
         self,
         robot,
@@ -990,9 +990,10 @@ class MoveLinearTask(URTask):
         radius=0.0,
         payload=0.0,
         CoG=[0.0, 0.0, 0.0],
+        ee_transform=True,
         key=None,
     ):
-        super(MoveLinearTask, self).__init__(robot, robot_address, key)
+        super(MoveLinearURdirectTask, self).__init__(robot, robot_address, key)
         self.robot = robot
         self.robot_address = robot_address
         self.frame = frame
@@ -1001,12 +1002,17 @@ class MoveLinearTask(URTask):
         self.radius = radius
         self.payload = payload
         self.CoG = CoG
+        self.ee_transform = ee_transform
 
     def create_urscript(self):
         if not self.in_RCF:
             frame_RCF = self.frame.transformed(self.robot.transformation_WCF_RCF())
         else:
             frame_RCF = self.frame
+            
+        if self.ee_transform and self.robot.attached_tool:
+            frame_RCF = self.robot.from_tcf_to_t0cf([frame_RCF])[0]
+            self.log("Attached tool.")
 
         self.urscript.set_payload(self.payload, self.CoG)
         self.urscript.add_line('textmsg(">> TASK{}.")'.format(self.key))
