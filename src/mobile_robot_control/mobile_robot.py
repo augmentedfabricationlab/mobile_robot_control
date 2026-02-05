@@ -118,15 +118,15 @@ class MobileRobot(Robot):
         return self._RCF
     
     def _update_RCF(self, RCF_frame=None):
-        if self.mobile_client != None:
+        if RCF_frame is not None:
+            self._RCF = RCF_frame
+        elif self.mobile_client != None:
             self.mobile_client.tf_subscribe(
                 self.tf_terminology["RCF"],
                 self.tf_terminology["BCF"],
                 self._receive_base_frame_callback,
                 timeout=5,
             )
-        elif RCF_frame is not None:
-            self._RCF = RCF_frame
         else:
             self._RCF = Frame(Point(0.275, 0.0, 1.0328), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
         
