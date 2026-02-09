@@ -1010,9 +1010,9 @@ class MoveLinearURdirectTask(URTask):
         else:
             frame_RCF = self.frame
             
-        if self.ee_transform and self.robot.attached_tool:
-            frame_RCF = self.robot.from_tcf_to_t0cf([frame_RCF])[0]
-            self.log("Attached tool.")
+        # if self.ee_transform and self.robot.attached_tool:
+        #     frame_RCF = self.robot.from_tcf_to_t0cf([frame_RCF])[0]
+        #     self.log("Attached tool.")
 
         self.urscript.set_payload(self.payload, self.CoG)
         self.urscript.add_line('textmsg(">> TASK{}.")'.format(self.key))
