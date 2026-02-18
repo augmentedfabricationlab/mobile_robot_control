@@ -958,7 +958,7 @@ class MoveJointsURdirectTask(URTask):
         robot_address,
         configuration,
         velocity=0.10,
-        radius=0.1,
+        radius=0.0,
         payload=0.0,
         CoG=[0.0, 0.0, 0.0],
         key=None,
@@ -972,8 +972,6 @@ class MoveJointsURdirectTask(URTask):
 
     def create_urscript(self):
         self.urscript.set_payload(self.payload, self.CoG)
-        self.urscript.add_line('textmsg(">> TASK{}.")'.format(self.key))
-
         joint_configuration = Configuration.from_revolute_values(self.configuration.revolute_values)
         
         self.urscript.move_joint(joint_configuration, self.velocity, self.radius)
@@ -1015,8 +1013,6 @@ class MoveLinearURdirectTask(URTask):
         #     self.log("Attached tool.")
 
         self.urscript.set_payload(self.payload, self.CoG)
-        self.urscript.add_line('textmsg(">> TASK{}.")'.format(self.key))
-
         self.urscript.move_linear(frame_RCF, self.velocity, self.radius)
 
         self.log("Going to frame {}.".format(self.frame))
@@ -1492,13 +1488,11 @@ class BreakBrickURTask(URTask):
         self.urscript.move_linear(pick_frame_safe, velocity=0.05, radius=0.00)
 
 class PlaceBrickURTask(URTask):
-    def __init__(self, robot, robot_address, assembly, brick_key, release=True, key=None):
+    def __init__(self, robot, robot_address, release=True, key=None):
         super(PlaceBrickURTask, self).__init__(robot, robot_address, key)
         self.robot = robot
         self.robot_address = robot_address
         self.release = release
-        self.assembly = assembly
-        self.brick_key = brick_key
 
     def urscript_fabrication_header(self):
         ## Initialize instance
@@ -1518,19 +1512,10 @@ class PlaceBrickURTask(URTask):
             self.urscript.socket_send_line_string(self.rec_msg, self.server.name)
                 
     def create_urscript(self):
-        place_frame = self.assembly.find_by_key(self.brick_key).frame.transformed(Translation.from_vector(Vector.Zaxis()*(0.4)))
-        row = self.assembly.graph.node_attribute(self.brick_key, 'placement_position')["row"]
-        Tx = Translation.from_vector([-row*0.02, 0, 0])
-        translated_place_frame = place_frame.transformed(Tx) # for larger gaps vertically
-
         self.log("Placing started!")
         self.urscript.set_payload(8.6, [0.005, -0.022, 0.072])
 
         self.urscript.parallelgrip_close()
-        
-        self.urscript.move_linear(translated_place_frame, velocity=0.1, radius=0.01)
-
-        self.urscript.move_linear(translated_place_frame, velocity=0.1, radius=0)
 
         self.urscript.add_line("\tsleep({})".format(1.0))
 
@@ -1544,6 +1529,48 @@ class PlaceBrickURTask(URTask):
         self.urscript.move_tool_by_distance(z_distance=-0.8, velocity=0.1, radius=0.01)
         self.urscript.parallelgrip_close()
 
+
+class PlaceBrickURTask(URTask):
+    def __init__(self, robot, robot_address, release=True, key=None):
+        super(PlaceBrickURTask, self).__init__(robot, robot_address, key)
+        self.robot = robot
+        self.robot_address = robot_address
+        self.release = release
+
+    def urscript_fabrication_header(self):
+        ## Initialize instance
+        self.urscript = URScript_ParallelGrip(*self.robot_address)
+        self.urscript.start()
+        
+        if self.robot:
+            ## Set tool
+            tool = self.robot.attached_tool
+            self.urscript.set_tcp(list(tool.frame.point)+list(tool.frame.axis_angle_vector))
+        self.urscript.textmessage(">> TASK {}".format(self.key), string=True)
+        
+        if self.server:
+            self.urscript.set_socket(self.server.ip, self.server.port, self.server.name)
+            self.urscript.socket_open(self.server.name)
+            ## Send script received msg
+            self.urscript.socket_send_line_string(self.rec_msg, self.server.name)
+                
+    def create_urscript(self):
+        self.log("Placing started!")
+        self.urscript.set_payload(8.6, [0.005, -0.022, 0.072])
+
+        self.urscript.parallelgrip_close()
+
+        self.urscript.add_line("\tsleep({})".format(1.0))
+
+        self.urscript.move_force_mode(force_z=50.0, speed_z=0.03)
+        self.urscript.stop_by_force(20.0)
+
+        if self.release:
+            self.urscript.parallelgrip_open()
+        
+        self.urscript.set_payload(5.6, [0.005, -0.022, 0.072])
+        self.urscript.move_tool_by_distance(z_distance=-0.8, velocity=0.1, radius=0.01)
+        self.urscript.parallelgrip_close()
 ### Marker related tasks ###
 
 class SearchAndSaveMarkersTask(Task):

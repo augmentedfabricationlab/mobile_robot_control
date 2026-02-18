@@ -19,6 +19,7 @@ class MobileRobot(Robot):
         semantics=None,
         client=None,
         mobile_client=None,
+        offline=False,
         **kwargs,
     ):
         super(MobileRobot, self).__init__(model, artist, semantics, client)
@@ -34,6 +35,7 @@ class MobileRobot(Robot):
         self.mobile_client = mobile_client
         self.tf_terminology = {"RCF" : "robot_arm_base",
                                "BCF" : "robot_base_footprint"}
+        self.offline = offline
         
         self.attributes = {}
         self._current_ik = {"request_id": None, "solutions": None}
@@ -118,17 +120,19 @@ class MobileRobot(Robot):
         return self._RCF
     
     def _update_RCF(self, RCF_frame=None):
-        if RCF_frame is not None:
-            self._RCF = RCF_frame
-        elif self.mobile_client != None:
-            self.mobile_client.tf_subscribe(
-                self.tf_terminology["RCF"],
-                self.tf_terminology["BCF"],
-                self._receive_base_frame_callback,
-                timeout=5,
-            )
+        if self.offline:
+            if RCF_frame is not None:
+                self._RCF = RCF_frame
+            else:
+                self._RCF = Frame(Point(0.275, 0.0, 1.0328), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
         else:
-            self._RCF = Frame(Point(0.275, 0.0, 1.0328), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
+            if self.mobile_client != None:
+                self.mobile_client.tf_subscribe(
+                    self.tf_terminology["RCF"],
+                    self.tf_terminology["BCF"],
+                    self._receive_base_frame_callback,
+                    timeout=5,
+                )
         
         #     robot_arm_base_link = self.forward_kinematics(self.zero_configuration(), 'ur10e', True, options={'link':'robot_arm_base_link'})
         #     self._RCF = Frame(robot_arm_base_link.point, -robot_arm_base_link.xaxis, -robot_arm_base_link.yaxis)
