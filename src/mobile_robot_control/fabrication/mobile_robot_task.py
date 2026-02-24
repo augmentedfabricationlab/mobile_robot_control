@@ -1526,7 +1526,7 @@ class PlaceBrickURTask(URTask):
             self.urscript.parallelgrip_open()
         
         self.urscript.set_payload(5.6, [0.005, -0.022, 0.072])
-        self.urscript.move_tool_by_distance(z_distance=-0.8, velocity=0.1, radius=0.01)
+        self.urscript.move_tool_by_distance(z_distance=-0.1, velocity=0.1, radius=0.01)
         self.urscript.parallelgrip_close()
 
 
