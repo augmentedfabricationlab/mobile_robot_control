@@ -39,6 +39,7 @@ class MobileRobot(Robot):
         self._WCF = Frame.worldXY()  # world coordinate frame (WCF)
         self._BCF = Frame.worldXY()  # base coordinate frame in WCF (BCF)
         self._RCF = None  # ur robot arm coordinate frame in BCF (RCF)
+        self._RCF_lift = None  # ur robot arm coordinate frame in BCF (RCF) with lift height
 
         self._RWCF = Frame.worldXY()  # reference world coordinate frame (RWCF)
         self._RBCF = Frame.worldXY()  # base coordinate frame in RWCF (RBCF)
@@ -74,15 +75,20 @@ class MobileRobot(Robot):
 
     @property
     def RCF(self):
-        if self.mobile_client != None:
-            if self._RCF == None:
+        if self.mobile_client is not None:
+            if self._RCF is None:
                 self.mobile_client.tf_subscribe(
                     "robot_arm_base",
                     "robot_base_footprint",
                     self._receive_base_frame_callback,
                     timeout=5,
                 )
-        return self._RCF
+            if self.lift_height != 0:
+                self._RCF_lift = self._RCF.copy()
+                self._RCF_lift.point.z += self.lift_height
+            else:
+                self._RCF_lift = self._RCF
+        return self._RCF_lift
 
     def _receive_base_frame_callback(self, message):
         pose_point = Point(

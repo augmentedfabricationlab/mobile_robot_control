@@ -1,0 +1,76 @@
+version: '2'
+services:
+  ros-master:
+    image: augmentedfabricationlab/rbvogui-planner-noetic-mac:latest
+    container_name: ros-master
+    ports:
+      - "11311:11311"
+    command:
+      - roscore
+
+  ros-bridge:
+    image: augmentedfabricationlab/rbvogui-planner-noetic-mac:latest
+    container_name: ros-bridge
+    environment:
+      - "ROS_HOSTNAME=ros-bridge"
+      - "ROS_MASTER_URI=http://ros-master:11311"
+    ports:
+      - "9090:9090"
+    depends_on:
+      - ros-master
+    command:
+      - roslaunch
+      - --wait
+      - rosbridge_server
+      - rosbridge_websocket.launch
+
+  tf-web-republisher:
+    image: augmentedfabricationlab/rbvogui-planner-noetic-mac:latest
+    container_name: tf-web-republisher
+    environment:
+      - "ROS_HOSTNAME=tf-web-republisher"
+      - "ROS_MASTER_URI=http://ros-master:11311"
+    depends_on:
+      - ros-master
+      - ros-bridge
+    command:
+      - rosrun
+      - tf2_web_republisher
+      - tf2_web_republisher
+
+  ros-fileserver:
+    image: augmentedfabricationlab/rbvogui-planner-noetic-mac:latest
+    container_name: ros-fileserver
+    environment:
+      - ROS_HOSTNAME=ros-fileserver
+      - ROS_MASTER_URI=http://ros-master:11311
+    depends_on:
+      - ros-master
+      - ros-bridge
+    command:
+      - roslaunch
+      - --wait
+      - file_server
+      - file_server.launch
+
+  rbvogui-demo:
+    image: augmentedfabricationlab/rbvogui-planner-noetic-mac:latest
+    container_name: rbvogui-demo
+    environment:
+      - ROS_HOSTNAME=rbvogui-demo
+      - ROS_MASTER_URI=http://ros-master:11311
+      # - DISPLAY=gui:0.0
+    depends_on:
+      - ros-master
+      # - gui
+    command:
+      - roslaunch
+      - --wait
+      - rbvogui_xl_ur20_liftkit_moveit_config
+      - demo.launch
+      - use_rviz:=false
+
+  # gui:
+  #   image: gramaziokohler/novnc:latest
+  #   ports:
+  #     - "8080:8080"
