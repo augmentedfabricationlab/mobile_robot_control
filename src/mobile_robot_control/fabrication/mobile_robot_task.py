@@ -13,8 +13,8 @@ import math
 import roslibpy
 
 __all__ = [
-    "SendNavigationActionTask",
-    "MoveMobileBaseTask",
+    "MoveBaseViaNavigationTask",
+    "MoveBaseViaJointValuesTask",
     "MotionPlanExecutePose",
     "MotionPlanExecuteJoints",
     "AddCollisionMeshes",
@@ -40,9 +40,9 @@ __all__ = [
 ### Move Robot base tasks ###
 
 # Via navigation action for Nav2
-class SendNavigationActionTask(Task):
-    def __init__(self, robot, target_frame = None, key=None):
-        super(SendNavigationActionTask, self).__init__(key)
+class MoveBaseViaNavigationTask(Task):
+    def __init__(self, robot, target_frame=None, key=None):
+        super(MoveBaseViaNavigationTask, self).__init__(key)
         self.robot = robot
         self.target_frame = target_frame
         self.result = None
@@ -109,9 +109,9 @@ class SendNavigationActionTask(Task):
         return True
 
 # Via direct wheel commands for swerve drive
-class MoveMobileBaseTask(Task):
+class MoveBaseViaJointValuesTask(Task):
     def __init__(self, robot, velocity=1.0, right=True, linear=True, total_time=7, key=None):
-        super(MoveMobileBaseTask, self).__init__(key)
+        super(MoveBaseViaJointValuesTask, self).__init__(key)
         self.robot = robot
         self.linear = linear
         self.velocity = velocity
@@ -248,6 +248,119 @@ class MoveMobileBaseTask(Task):
         publisher.unadvertise()
         self.log("Arrived at target base frame.")
         
+        self.is_completed = True
+        return True
+
+# Via navigation action for Nav2
+class MoveBaseViaAxialMotionTask(Task):
+    def __init__(self, robot, target_frame, log_distances=False, key=None):
+        super(MoveBaseViaAxialMotionTask, self).__init__(key)
+        self.robot = robot
+        self.target_frame = target_frame
+        self.log_distances = log_distances
+
+        self.result = None
+        self.done = False
+        self.success = False
+        
+    def _result_callback(self, msg):
+        self.result = msg
+        self.done = True
+        self.success = True
+        
+    def _feedback_callback(self, msg):
+        rem = msg["remaining"]
+        if self.log_distances:
+            self.log(f"Distance remaining... x: {rem['x']:.4f} m, y: {rem['y']:.4f} m, theta: {rem['theta']:.4f} rad")
+
+    def _fail_callback(self, msg):
+        self.result = msg
+        self.done = True
+        self.success = False
+
+    def make_goal(self, x=0.0, y=0.0, theta=0.0):
+        return roslibpy.Goal(
+            {
+                'goal': {
+                    'x': x,
+                    'y': y,
+                    'theta': theta
+                },
+                'maximum_velocity': {
+                    'linear': {
+                        'x': 0.0,
+                        'y': 0.0,
+                        'z': 0.0
+                    },
+                    'angular': {
+                        'x': 0.0,
+                        'y': 0.0,
+                        'z': 0.0
+                    }
+                }
+            }
+        )
+        
+    def compute_axial_motions(self):
+        target_frame_in_BCF = self.robot.from_WCF_to_BCF(self.target_frame)
+
+        # Extract target components from Frame
+        target_x = float(target_frame_in_BCF.point.x)
+        target_y = float(target_frame_in_BCF.point.y)
+        target_theta = float(math.atan2(target_frame_in_BCF.xaxis.y, target_frame_in_BCF.xaxis.x))
+
+        goals = []
+
+        # 1) Move along y
+        if abs(target_y) > 0.0:
+            goals.append(self.make_goal(y=target_y))
+            self.log("x")
+
+        # 2) Move along x
+        if abs(target_x) > 0.0:
+            goals.append(self.make_goal(x=target_x))
+            self.log("x")
+
+        # 3) Rotate theta
+        if abs(target_theta) > 0.0:
+            goals.append(self.make_goal(theta=target_theta))
+            self.log("x")
+
+        return goals
+    
+    def run(self, stop_thread):
+        self.log("Sending axial motions.")
+
+        action_name = '/robot/move'
+        if action_name not in self.robot.mobile_client.action_clients.keys():
+            action_client = roslibpy.ActionClient(
+                self.robot.mobile_client.ros_client,
+                action_name,
+                'robotnik_navigation_msgs/action/Move'
+            )
+        else:
+            action_client = self.robot.mobile_client.action_clients[action_name]
+            self.log(f"Added action client {action_client}.")
+
+        goals = self.compute_axial_motions()
+        # self.log(goals)
+
+        for goal in goals:
+            self.result = None
+            self.done = False
+            self.success = False
+        
+            goal_id = action_client.send_goal(goal, self._result_callback, self._feedback_callback, self._fail_callback)
+
+            self.log(f'Sending goal: {goal} with ID {goal_id}')
+
+            while not stop_thread():
+                if self.done:
+                    break
+                time.sleep(0.1)
+            
+            self.log(f"Action {goal_id} result: {self.result['status']}")
+
         self.is_completed = True
         return True
 
@@ -1529,48 +1642,6 @@ class PlaceBrickURTask(URTask):
         self.urscript.move_tool_by_distance(z_distance=-0.1, velocity=0.1, radius=0.01)
         self.urscript.parallelgrip_close()
 
-
-class PlaceBrickURTask(URTask):
-    def __init__(self, robot, robot_address, release=True, key=None):
-        super(PlaceBrickURTask, self).__init__(robot, robot_address, key)
-        self.robot = robot
-        self.robot_address = robot_address
-        self.release = release
-
-    def urscript_fabrication_header(self):
-        ## Initialize instance
-        self.urscript = URScript_ParallelGrip(*self.robot_address)
-        self.urscript.start()
-        
-        if self.robot:
-            ## Set tool
-            tool = self.robot.attached_tool
-            self.urscript.set_tcp(list(tool.frame.point)+list(tool.frame.axis_angle_vector))
-        self.urscript.textmessage(">> TASK {}".format(self.key), string=True)
-        
-        if self.server:
-            self.urscript.set_socket(self.server.ip, self.server.port, self.server.name)
-            self.urscript.socket_open(self.server.name)
-            ## Send script received msg
-            self.urscript.socket_send_line_string(self.rec_msg, self.server.name)
-                
-    def create_urscript(self):
-        self.log("Placing started!")
-        self.urscript.set_payload(8.6, [0.005, -0.022, 0.072])
-
-        self.urscript.parallelgrip_close()
-
-        self.urscript.add_line("\tsleep({})".format(1.0))
-
-        self.urscript.move_force_mode(force_z=50.0, speed_z=0.03)
-        self.urscript.stop_by_force(20.0)
-
-        if self.release:
-            self.urscript.parallelgrip_open()
-        
-        self.urscript.set_payload(5.6, [0.005, -0.022, 0.072])
-        self.urscript.move_tool_by_distance(z_distance=-0.8, velocity=0.1, radius=0.01)
-        self.urscript.parallelgrip_close()
 ### Marker related tasks ###
 
 class SearchAndSaveMarkersTask(Task):
