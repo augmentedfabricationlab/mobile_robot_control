@@ -1,10 +1,15 @@
 from compas_fab.robots import Robot
-
+from compas_robots.model import Joint
+from compas_robots import Configuration
 from compas.geometry import Frame, Point, Vector
-from compas.geometry import Transformation, Translation, Quaternion
+from compas.geometry import Transformation, Translation, Quaternion, Rotation
+from ur_fabrication_control.kinematics.ur_kinematics import inverse_kinematics as ur_inverse_kinematics
+from ur_fabrication_control.kinematics.ur_params import ur_params as ur_parameters
+from compas_fab.robots import robot
 from roslibpy import Message, Topic, Service, tf
 import time
 import json
+import math
 
 __all__ = ["MobileRobot"]
 
@@ -119,28 +124,19 @@ class MobileRobot(Robot):
     def RCF(self):
         return self._RCF
     
-    def _update_RCF(self, RCF_frame=None):
-        if self.offline:
-            if RCF_frame is not None:
-                self._RCF = RCF_frame
-            else:
-                self._RCF = Frame(Point(0.275, 0.0, 1.0328), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
-        else:
-            if self.mobile_client != None:
-                self.mobile_client.tf_subscribe(
+    def _update_RCF(self, RCF_frame=None, online=False, group="ur20"):
+        if RCF_frame is not None:
+                self._RCF = RCF_frame    
+        elif online and self.mobile_client is not None:
+            self.mobile_client.tf_subscribe(
                     self.tf_terminology["RCF"],
                     self.tf_terminology["BCF"],
                     self._receive_base_frame_callback,
                     timeout=5,
                 )
-        
-        #     robot_arm_base_link = self.forward_kinematics(self.zero_configuration(), 'ur10e', True, options={'link':'robot_arm_base_link'})
-        #     self._RCF = Frame(robot_arm_base_link.point, -robot_arm_base_link.xaxis, -robot_arm_base_link.yaxis)
-        # if self.wheel_type == 'outdoor':
-        #     self._RCF = Frame(Point(0.275, 0.0, 1.049 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
-        # elif self.wheel_type == 'indoor':
-        # self._RCF = Frame(Point(0.275, 0.0, 1.021 + self.lift_height), Vector(-0.707, 0.707, 0.0), Vector(-0.707, -0.707, 0.0))
-        
+        else:
+            base_link_frame = self.get_base_frame(group=group)
+            self._RCF = base_link_frame.transformed(Rotation.from_axis_and_angle(base_link_frame.zaxis, math.radians(180), base_link_frame.point))
         return self._RCF
 
     def _receive_base_frame_callback(self, message):
@@ -159,7 +155,7 @@ class MobileRobot(Robot):
         self._RCF = pose_frame
 
         return self._RCF
-
+    
     @property
     def lift_height(self):
         return self._lift_height
@@ -175,7 +171,47 @@ class MobileRobot(Robot):
     @PCF.setter
     def PCF(self, PCF):
         self._PCF = PCF
+    
+    def f_kinematics(self, lift, j1, j2, j3, j4, j5, j6):
+        self.lift_height = lift
+        joint_positions = [lift, j1, j2, j3, j4, j5, j6]
+        joint_types = self.model.get_joint_types()[4:11]
+        joint_names = self.model.get_configurable_joint_names()[4:11]
+
+        for i, joint_type in enumerate(joint_types):
+            if joint_type == Joint.REVOLUTE:
+                joint_positions[i] = math.radians(joint_positions[i])
+        configuration = Configuration(joint_positions, joint_types, joint_names)
+        return configuration
+    
+    def i_kinematics(self, frame_WCF, lift=0.0, arm_type="ur20", idx=5):
         
+        # transform frame to robot coordinate system
+        frame_RCF = self.from_WCF_to_RCF(frame_WCF).transformed(Translation.from_vector(Vector(0, 0, -lift))) # account for lift height
+        print(frame_RCF)
+
+        if self.attached_tool:
+            tool0_RCF = self.from_tcf_to_t0cf([frame_RCF])[0]
+        else:
+            tool0_RCF = frame_RCF
+
+        # calculate solutions to frame
+        params = ur_parameters[arm_type]
+        solutions = ur_inverse_kinematics(tool0_RCF, params)
+
+        if not len(solutions):
+            joint_values = [0, 0, 0, 0, 0, 0]
+            configuration = Configuration.from_prismatic_and_revolute_values([lift], joint_values)
+        else:
+            selected_idx = int(idx)
+
+            joint_values = list(solutions[selected_idx])
+            print(joint_values)
+            #joint_values[1] -= 2 * math.pi
+            configuration = Configuration.from_prismatic_and_revolute_values([lift], joint_values)
+
+        return configuration, solutions
+
     def _record_state(self, tag="update"):
         """Record the current frames of the mobile robot."""
         entry = {

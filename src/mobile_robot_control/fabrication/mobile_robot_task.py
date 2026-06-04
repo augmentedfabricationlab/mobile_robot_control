@@ -15,6 +15,9 @@ import roslibpy
 __all__ = [
     "MoveBaseViaNavigationTask",
     "MoveBaseViaJointValuesTask",
+    "MoveBaseViaAxialMotionTask",
+    "MoveArmJointsViaActionTask",
+    "MoveArmPoseViaActionTask",
     "MotionPlanExecutePose",
     "MotionPlanExecuteJoints",
     "AddCollisionMeshes",
@@ -39,7 +42,7 @@ __all__ = [
 
 ### Move Robot base tasks ###
 
-# Via navigation action for Nav2
+# Via navigation action for Nav2 (WIP - needs testing and debugging)
 class MoveBaseViaNavigationTask(Task):
     def __init__(self, robot, target_frame=None, key=None):
         super(MoveBaseViaNavigationTask, self).__init__(key)
@@ -251,7 +254,7 @@ class MoveBaseViaJointValuesTask(Task):
         self.is_completed = True
         return True
 
-# Via navigation action for Nav2
+# Via navigation action for axial motions (works))
 class MoveBaseViaAxialMotionTask(Task):
     def __init__(self, robot, target_frame, log_distances=False, key=None):
         super(MoveBaseViaAxialMotionTask, self).__init__(key)
@@ -363,6 +366,233 @@ class MoveBaseViaAxialMotionTask(Task):
 
         self.is_completed = True
         return True
+
+### Motion plan tasks via actions ###
+
+class MoveArmJointsViaActionTask(Task):
+    def __init__(self, robot, configuration=None, group="arm", execute=False, key=None):
+        super(MoveArmJointsViaActionTask, self).__init__(key)
+        self.robot = robot
+        self.configuration = configuration
+        self.group = group
+        self.execute = execute
+        
+        self.result = None
+        self.done = False
+        self.success = False
+        
+    def _result_callback(self, msg):
+        self.result = msg
+        self.done = True
+        self.success = True
+        
+    def _feedback_callback(self, msg):
+        pass
+
+    def _fail_callback(self, msg):
+        self.result = msg
+        self.done = True
+        self.success = False
+    
+    def run(self, stop_thread):
+        action_name = '/robot/move_action'
+        if action_name not in self.robot.mobile_client.action_clients.keys():
+            action_client = roslibpy.ActionClient(
+                self.robot.mobile_client.ros_client,
+                action_name,
+                'moveit_msgs/action/MoveGroup'
+            )
+        else:
+            action_client = self.robot.mobile_client.action_clients[action_name]
+            self.log(f"Added action client {action_client}.")
+
+        joint_constraints = [
+            {
+            'joint_name': name,
+            'position': position,
+            'tolerance_above': 0.01,
+            'tolerance_below': 0.01,
+            'weight': 1.0
+            }
+            for name, position in zip(self.configuration.joint_names, self.configuration.joint_values)
+        ]
+        
+        goal = {
+            'request': {
+            'group_name': self.group,
+            'pipeline_id': 'ompl',
+            'num_planning_attempts': 3,
+            'allowed_planning_time': 5.0,
+            'max_velocity_scaling_factor': 0.1,
+            'max_acceleration_scaling_factor': 0.1,
+            'goal_constraints': [
+                {
+                'joint_constraints': joint_constraints
+                }
+            ]
+            },
+            'planning_options': {
+            'plan_only': not self.execute
+            }
+        }
+        self.log(goal)
+        
+        goal_id = action_client.send_goal(goal, self._result_callback, self._feedback_callback, self._fail_callback)
+
+        self.log(f'Sending goal: {goal} with ID {goal_id}')
+
+        while not stop_thread():
+            if self.done:
+                break
+            time.sleep(0.1)
+        
+        self.log(f"Action {goal_id} result: {self.result['status']}")
+
+        self.is_completed = True
+        return True
+
+class MoveArmPoseViaActionTask(Task):
+    def __init__(
+        self,
+        robot,
+        pose_WCF,
+        group="arm",
+        frame_id="robot_base_footprint",
+        link_name="robot_arm_tool0",
+        execute=False,
+        position_tolerance=0.001,
+        orientation_tolerance=0.001,
+        key=None,
+    ):
+        super(MoveArmPoseViaActionTask, self).__init__(key)
+        self.robot = robot
+        self.pose = robot.from_WCF_to_BCF(pose_WCF)
+        self.group = group
+        self.frame_id = frame_id
+        self.link_name = link_name
+        self.execute = execute
+        self.position_tolerance = position_tolerance
+        self.orientation_tolerance = orientation_tolerance
+
+        self.result = None
+        self.done = False
+        self.success = False
+
+    def _result_callback(self, msg):
+        self.result = msg
+        self.done = True
+        self.success = True
+
+    def _feedback_callback(self, msg):
+        pass
+
+    def _fail_callback(self, msg):
+        self.result = msg
+        self.done = True
+        self.success = False
+
+    def run(self, stop_thread):
+        if self.robot.attached_tool:
+            self.pose = self.robot.from_tcf_to_t0cf([self.pose])[0]
+            self.log("Attached tool.")
+
+        action_name = "/robot/move_action"
+
+        if action_name not in self.robot.mobile_client.action_clients.keys():
+            action_client = roslibpy.ActionClient(
+                self.robot.mobile_client.ros_client,
+                action_name,
+                "moveit_msgs/action/MoveGroup",
+            )
+            self.robot.mobile_client.action_clients[action_name] = action_client
+        else:
+            action_client = self.robot.mobile_client.action_clients[action_name]
+            self.log(f"Using action client {action_client}.")
+
+        position_constraint = {
+            "header": {"frame_id": self.frame_id},
+            "link_name": self.link_name,
+            "target_point_offset": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "constraint_region": {
+                "primitives": [
+                    {
+                        "type": 1,  # BOX
+                        "dimensions": [
+                            self.position_tolerance,
+                            self.position_tolerance,
+                            self.position_tolerance,
+                        ],
+                    }
+                ],
+                "primitive_poses": [
+                    {
+                        "position": {
+                            "x": self.pose.point.x,
+                            "y": self.pose.point.y,
+                            "z": self.pose.point.z,
+                        },
+                        "orientation": {"w": 1.0},
+                    }
+                ],
+            },
+            "weight": 1.0,
+        }
+
+        orientation_constraint = {
+            "header": {"frame_id": self.frame_id},
+            "link_name": self.link_name,
+            "orientation": {
+                "x": self.pose.quaternion.x,
+                "y": self.pose.quaternion.y,
+                "z": self.pose.quaternion.z,
+                "w": self.pose.quaternion.w,
+            },
+            "absolute_x_axis_tolerance": self.orientation_tolerance,
+            "absolute_y_axis_tolerance": self.orientation_tolerance,
+            "absolute_z_axis_tolerance": self.orientation_tolerance,
+            "weight": 1.0,
+        }
+
+        goal = {
+            "request": {
+                "group_name": self.group,
+                "pipeline_id": "ompl",
+                "num_planning_attempts": 3,
+                "allowed_planning_time": 5.0,
+                "max_velocity_scaling_factor": 0.1,
+                "max_acceleration_scaling_factor": 0.1,
+                "goal_constraints": [
+                    {
+                        "position_constraints": [position_constraint],
+                        "orientation_constraints": [orientation_constraint],
+                    }
+                ],
+            },
+            "planning_options": {
+                "plan_only": not self.execute,
+            },
+        }
+
+        self.log(goal)
+
+        goal_id = action_client.send_goal(
+            goal,
+            self._result_callback,
+            self._feedback_callback,
+            self._fail_callback,
+        )
+
+        self.log(f"Sending pose goal with ID {goal_id}")
+
+        while not stop_thread():
+            if self.done:
+                break
+            time.sleep(0.1)
+
+        self.log(f"Action {goal_id} result: {self.result['status']}")
+
+        self.is_completed = True
+        return self.success
 
 ### Motion plan tasks via moveit_py services ###
 

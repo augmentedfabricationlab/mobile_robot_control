@@ -10,7 +10,7 @@ from compas_fab.backends.ros.messages import (
 )
 from compas_fab.robots.time_ import Duration
 from compas_robots import Configuration
-from roslibpy import Message, Topic, Service, tf
+from roslibpy import Message, Topic, Service, tf, ActionClient, Goal
 from roslibpy.core import ServiceRequest
 from threading import Timer
 
@@ -34,8 +34,8 @@ class MobileRobotClient(object):
         self.ros_client = ros_client
         self.topics = {}
         self.services = {}
-        self.tf_clients = {}
         self.action_clients = {}
+        self.tf_actions = {}
 
         self.cmd_vel = AttrDict(
             linear=AttrDict(x=0.0, y=0.0, z=0.0), angular=AttrDict(x=0.0, y=0.0, z=0.0)
@@ -55,62 +55,170 @@ class MobileRobotClient(object):
     def disconnect(self):
         """_summary_"""
         self.ros_client.close()
-
+        
     def tf_subscribe(self, target_frame, reference_frame, callback=None, timeout=None):
-        """_summary_
-
-        Args:
-            target_frame (str): Name of the target frame requested.
-            reference_frame (str): Name of the reference frame requested.
         """
-        if not self.tf_clients.get(reference_frame):
-            tf_client = tf.TFClient(
-                self.ros_client,
-                fixed_frame=reference_frame,
-                angular_threshold=0.0,
-                rate=10.0,
-            )
-            self.tf_clients[reference_frame] = tf_client
-        else:
-            tf_client = self.tf_clients.get(reference_frame)
-        if callback is None:
-            callback = self._receive_tf_frame_callback
-        tf_client.subscribe(target_frame, callback)
-        if timeout:
-            Timer(timeout, self.tf_unsubscribe(target_frame, reference_frame)).start()
+        Subscribe to transform of target_frame expressed in reference_frame
+        using /tf2_web_republisher action.
+        """
 
-    def _receive_tf_frame_callback(self, message):
-        pose_point = Point(
-            message["translation"]["x"],
-            message["translation"]["y"],
-            message["translation"]["z"],
+        action_name = "/tf2_web_republisher"
+        action_type = "tf2_web_republisher_interfaces/action/TFSubscription"
+
+        if not hasattr(self, "tf_actions"):
+            self.tf_actions = {}
+
+        if action_name not in self.tf_actions:
+            self.tf_actions[action_name] = {
+                "action_client": ActionClient(
+                    self.ros_client,
+                    action_name,
+                    action_type
+                ),
+                "goals": {}
+            }
+
+        action = self.tf_actions[action_name]
+        action_client = action["action_client"]
+        goals = action["goals"]
+
+        # one active TF subscription per reference/target pair
+        tf_key = "{}::{}".format(reference_frame, target_frame)
+
+        if tf_key in goals and goals[tf_key].get("active"):
+            print("TF subscription already active:", tf_key)
+            return goals[tf_key]["goal_id"]
+
+        goal_msg = Goal({
+            "source_frames": [target_frame],
+            "target_frame": reference_frame,
+            "angular_thres": 0.0,
+            "trans_thres": 0.0,
+            "rate": 10.0
+        })
+
+        goals[tf_key] = {
+            "goal_id": None,
+            "response": None,
+            "frame": None,
+            "success": False,
+            "active": False,
+            "target_frame": target_frame,
+            "reference_frame": reference_frame
+        }
+        
+        def _result_callback(msg):
+            goals[tf_key]["response"] = msg
+            goals[tf_key]["success"] = True
+            goals[tf_key]["active"] = False
+
+        def _feedback_callback(msg):
+            goals[tf_key]["response"] = msg
+            goals[tf_key]["success"] = True
+
+            transforms = msg.get("transforms", [])
+            if not transforms:
+                return
+
+            transform_msg = transforms[0]["transform"]
+
+            point = Point(
+                transform_msg["translation"]["x"],
+                transform_msg["translation"]["y"],
+                transform_msg["translation"]["z"],
+            )
+
+            quat = Quaternion(
+                transform_msg["rotation"]["w"],
+                transform_msg["rotation"]["x"],
+                transform_msg["rotation"]["y"],
+                transform_msg["rotation"]["z"],
+            )
+
+            frame = Frame.from_quaternion(quat, point)
+
+            goals[tf_key]["frame"] = frame
+
+            self.tf_frame = frame  # keep old behavior intact
+
+            if callback is not None:
+                callback(transform_msg)
+
+        def _fail_callback(msg):
+            goals[tf_key]["response"] = msg
+            goals[tf_key]["success"] = False
+            goals[tf_key]["active"] = False
+
+        goal_id = action_client.send_goal(
+            goal_msg,
+            _result_callback,
+            _feedback_callback,
+            _fail_callback
         )
-        pose_quaternion = Quaternion(
-            message["rotation"]["w"],
-            message["rotation"]["x"],
-            message["rotation"]["y"],
-            message["rotation"]["z"],
-        )
-        pose_frame = Frame.from_quaternion(pose_quaternion, pose_point)
-        self.tf_frame = pose_frame
+
+        goals[tf_key]["goal_id"] = goal_id
+        goals[tf_key]["active"] = True
+
+        print("Sent TF subscription:", tf_key, goal_id)
+
+        if timeout:
+            Timer(timeout, lambda: self.tf_unsubscribe(target_frame, reference_frame)).start()
+
+        return goal_id
 
     def clean_tf_frame(self):
         self.tf_frame = None
 
     def tf_unsubscribe(self, target_frame, reference_frame):
-        """_summary_
-
-        Args:
-            target_frame (str): Name of target frame. e.g. 'marker_0'
-            reference_frame (str): Name of reference frame. e.g. 'base'
         """
-        if self.tf_clients.get(reference_frame):
-            tf_client = self.tf_clients.get(reference_frame)
-            try:
-                tf_client.unsubscribe(target_frame, self._receive_tf_frame_callback)
-            except TypeError:
-                pass
+        Cancel TF action goal for target_frame expressed in reference_frame.
+        """
 
+        action_name = "/tf2_web_republisher"
+
+        if not hasattr(self, "tf_actions"):
+            return
+
+        if action_name not in self.tf_actions:
+            return
+
+        action = self.tf_actions[action_name]
+        action_client = action["action_client"]
+        goals = action["goals"]
+
+        tf_key = "{}::{}".format(reference_frame, target_frame)
+
+        if tf_key not in goals:
+            return
+
+        goal_state = goals[tf_key]
+
+        if goal_state.get("active") and goal_state.get("goal_id"):
+            action_client.cancel_goal(goal_state["goal_id"])
+            goal_state["active"] = False
+            print("Cancelled TF subscription:", tf_key)
+
+    def get_tf(self, target_frame, reference_frame):
+        """
+        Get the latest TF frame for target_frame expressed in reference_frame.
+        """
+        action_name = "/tf2_web_republisher"
+
+        if not hasattr(self, "tf_actions"):
+            return None
+
+        if action_name not in self.tf_actions:
+            return None
+
+        action = self.tf_actions[action_name]
+        goals = action["goals"]
+
+        tf_key = "{}::{}".format(reference_frame, target_frame)
+
+        if tf_key not in goals:
+            return None
+
+        return goals[tf_key].get("frame")
     def service_provide(self, service_name, service_type, handler=None):
         """Start advertising the service.
         This turns the instance from a client into a server. The callback will be invoked with every request that is made to the service.
@@ -172,6 +280,20 @@ class MobileRobotClient(object):
             return True
         else:
             return False
+        
+    def get_action(self, action_name):
+        return self.action_clients.get(action_name)
+
+    def set_action(self, action_name, action_type):
+        self.action_clients[action_name] = ActionClient(
+            self.ros_client,
+            action_name,
+            action_type
+        )
+        return self.action_clients[action_name]
+
+    def remove_action(self, action_name):
+        self.action_clients.pop(action_name)
 
     def topic_subscribe(self, topic_name, msg_type=None, callback=None):
         if topic_name not in self.topics.keys():
