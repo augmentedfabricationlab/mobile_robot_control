@@ -184,8 +184,7 @@ class MobileRobot(Robot):
         configuration = Configuration(joint_positions, joint_types, joint_names)
         return configuration
     
-    def i_kinematics(self, frame_WCF, lift=0.0, arm_type="ur20", idx=5):
-        
+    def i_kinematics(self, frame_WCF, lift=0.0, arm_type="ur20", idx=0):
         # transform frame to robot coordinate system
         frame_RCF = self.from_WCF_to_RCF(frame_WCF).transformed(Translation.from_vector(Vector(0, 0, -lift))) # account for lift height
         print(frame_RCF)
@@ -204,13 +203,14 @@ class MobileRobot(Robot):
             configuration = Configuration.from_prismatic_and_revolute_values([lift], joint_values)
         else:
             selected_idx = int(idx)
-
             joint_values = list(solutions[selected_idx])
-            print(joint_values)
-            #joint_values[1] -= 2 * math.pi
             configuration = Configuration.from_prismatic_and_revolute_values([lift], joint_values)
 
         return configuration, solutions
+    
+    def is_reachable(self, frame_WCF, lift=0.0, arm_type="ur20"):
+        c, s = self.i_kinematics(frame_WCF, lift, arm_type)
+        return len(s) > 0
 
     def _record_state(self, tag="update"):
         """Record the current frames of the mobile robot."""
