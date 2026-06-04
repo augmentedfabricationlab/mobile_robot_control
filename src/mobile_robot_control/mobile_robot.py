@@ -187,7 +187,6 @@ class MobileRobot(Robot):
     def i_kinematics(self, frame_WCF, lift=0.0, arm_type="ur20", idx=0):
         # transform frame to robot coordinate system
         frame_RCF = self.from_WCF_to_RCF(frame_WCF).transformed(Translation.from_vector(Vector(0, 0, -lift))) # account for lift height
-        print(frame_RCF)
 
         if self.attached_tool:
             tool0_RCF = self.from_tcf_to_t0cf([frame_RCF])[0]
