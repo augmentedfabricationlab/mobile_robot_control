@@ -1248,7 +1248,7 @@ class ChangeToolFrameTask(Task):
         super(ChangeToolFrameTask, self).__init__(key)
         self.robot = robot
         self.tool_name = tool_name
-        gripper_frame = Frame([0, 0, 0.166], [0, -1, 0], [1, 0, 0])
+        gripper_frame = Frame([0, 0, 0.166], [0, 1, 0], [-1, 0, 0]) 
         camera_frame = Frame([-0.0327, 0.0572, 0.0815], [-1, 0, 0], [0, 0, 1])
         if tool_name == 'gripper':
             self.tool_frame = gripper_frame
@@ -1350,10 +1350,6 @@ class MoveLinearURdirectTask(URTask):
             frame_RCF = self.frame.transformed(self.robot.transformation_WCF_RCF())
         else:
             frame_RCF = self.frame
-            
-        # if self.ee_transform and self.robot.attached_tool:
-        #     frame_RCF = self.robot.from_tcf_to_t0cf([frame_RCF])[0]
-        #     self.log("Attached tool.")
 
         self.urscript.set_payload(self.payload, self.CoG)
         self.urscript.move_linear(frame_RCF, self.velocity, self.radius)
@@ -1688,13 +1684,14 @@ class DrillBrickURTask(URTask):
         self.urscript.move_linear(high_in_drill_frame)
 
 class PickBrickURTask(URTask):
-    def __init__(self, robot, robot_address, assembly, brick_key, grip=True, key=None):
+    def __init__(self, robot, robot_address, assembly, brick_key, grip=True, find_middle=False, key=None):
         super(PickBrickURTask, self).__init__(robot, robot_address, key)
         self.robot = robot
         self.robot_address = robot_address
         self.assembly = assembly
         self.brick_key = brick_key
         self.grip = grip
+        self.find_middle = find_middle
 
     def urscript_fabrication_header(self):
         ## Initialize instance
@@ -1714,7 +1711,8 @@ class PickBrickURTask(URTask):
             self.urscript.socket_send_line_string(self.rec_msg, self.server.name)
     
     def create_urscript(self):
-        brick_frame = self.assembly.find_by_key(self.brick_key).frame.transformed(Translation.from_vector(Vector.Zaxis()*0.025))
+        brick_frame_WCF = self.assembly.find_by_key(self.brick_key).frame
+        brick_frame = self.robot.from_WCF_to_RCF(brick_frame_WCF).transformed(Translation.from_vector(Vector.Zaxis()*0.025))
         brick_pose = brick_frame.point.__data__ + brick_frame.axis_angle_vector.__data__
         
         self.log("Picking started!")
@@ -1727,7 +1725,7 @@ class PickBrickURTask(URTask):
 
         # Check the x force.
         self.urscript.add_line("x_force = get_tcp_force()[0]")
-        # urscript.add_lines(["textmsg(x_force)"])
+        self.urscript.add_lines(["textmsg(x_force)"])
         self.urscript.add_line("brick_pose = p[{}, {}, {}, {}, {}, {}]".format(*brick_pose))
         self.urscript.add_line("distance_taken = 0.001")
 
@@ -1736,13 +1734,13 @@ class PickBrickURTask(URTask):
         self.urscript.add_line("textmsg(norm(brick_pose[2] - get_actual_tcp_pose()[2]))", indent=2)
 
         self.urscript.add_line("pose_new = get_actual_tcp_pose()", indent=2)
-        self.urscript.move_tool_by_distance(z_distance=-0.002, indent=2)
+        self.urscript.move_tool_by_distance(z_distance=-0.005, indent=2)
         self.urscript.add_line("sleep({})".format(1.0), indent=2)
 
         self.urscript.add_line("if x_force > 0:", indent=2)
-        self.urscript.move_tool_by_distance(x_distance=-0.008, indent=3)
+        self.urscript.move_tool_by_distance(y_distance=-0.008, indent=3)
         self.urscript.add_line("else:", indent=2)
-        self.urscript.move_tool_by_distance(x_distance=0.008, indent=3)
+        self.urscript.move_tool_by_distance(y_distance=0.008, indent=3)
         self.urscript.add_line("end", indent=2)
 
         # Move down again.
@@ -1750,7 +1748,7 @@ class PickBrickURTask(URTask):
         self.urscript.move_force_mode(force_z=20.0, speed_z=0.015, indent=2)
         self.urscript.stop_by_force(15.0,indent=2)
         self.urscript.add_line("x_force = get_tcp_force()[0]",indent=2)
-        # urscript.add_lines(["textmsg(x_force)"], indent=2)
+        # self.urscript.add_lines(["textmsg(x_force)"], indent=2)
 
         self.urscript.add_line("pose_new_low = get_actual_tcp_pose()", indent=2)
         self.urscript.add_line("distance_taken = pose_dist(pose_new, pose_new_low)", indent=2)
@@ -1760,22 +1758,23 @@ class PickBrickURTask(URTask):
         self.urscript.textmessage("Got the brick.", string=True)
 
         # Find middle:
-        # Move up a little.
-        self.urscript.move_tool_by_distance(z_distance=-0.003)
-        self.urscript.add_line("sleep({})".format(2.0))
+        if self.find_middle:
+            # Move up a little.
+            self.urscript.move_tool_by_distance(z_distance=-0.003)
+            self.urscript.add_line("sleep({})".format(2.0))
 
-        # Go in x to get a mid point.
-        self.urscript.move_force_mode(force_x=-10.0, speed_x=0.010)
-        self.urscript.stop_by_force(15.0)
+            # Go in x to get a mid point.
+            self.urscript.move_force_mode(force_x=-10.0, speed_x=0.010)
+            self.urscript.stop_by_force(15.0)
 
-        # Go to middle.
-        self.urscript.add_line("sleep({})".format(1.0))
-        self.urscript.move_tool_by_distance(x_distance=0.0075)
-        self.urscript.add_line("sleep({})".format(1.0))
+            # Go to middle.
+            self.urscript.add_line("sleep({})".format(1.0))
+            self.urscript.move_tool_by_distance(x_distance=0.0075)
+            self.urscript.add_line("sleep({})".format(1.0))
 
-        # Move down.
-        self.urscript.move_force_mode(force_z=15.0, speed_z=0.010)
-        self.urscript.stop_by_force(15.0)
+            # Move down.
+            self.urscript.move_force_mode(force_z=15.0, speed_z=0.010)
+            self.urscript.stop_by_force(15.0)
 
         if self.grip:
             self.urscript.parallelgrip_close()
