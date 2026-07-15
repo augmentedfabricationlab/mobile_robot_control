@@ -1346,15 +1346,18 @@ class MoveLinearURdirectTask(URTask):
         self.ee_transform = ee_transform
 
     def create_urscript(self):
-        if not self.in_RCF:
-            frame_RCF = self.frame.transformed(self.robot.transformation_WCF_RCF())
-        else:
-            frame_RCF = self.frame
-
+        frames = self.frame if isinstance(self.frame, list) else [self.frame]
+        
         self.urscript.set_payload(self.payload, self.CoG)
-        self.urscript.move_linear(frame_RCF, self.velocity, self.radius)
+        
+        for frame in frames:
+            if not self.in_RCF:
+                frame_RCF = frame.transformed(self.robot.transformation_WCF_RCF())
+            else:
+                frame_RCF = frame
 
-        self.log("Going to frame {}.".format(self.frame))
+            self.urscript.move_linear(frame_RCF, self.velocity, self.radius)
+            self.log("Going to frame {}.".format(frame))
 
 ### UR direct force control action tasks ###
 
